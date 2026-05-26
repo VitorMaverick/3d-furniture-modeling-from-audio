@@ -1178,7 +1178,7 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` }))
     };
-  }, [chairSeatWidth, chairSeatDepth, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode]);
+  }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode]);
   
   return (
     <group position={position}>

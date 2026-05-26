@@ -42,6 +42,9 @@ export function AudioShaderMaterial({ baseColor, roughness = 0.6, metalness = 0.
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { params } = useFurniture();
   
+  // Uniforms are initialized once and mutated imperatively inside useFrame on every frame.
+  // The empty dependency array is intentional: recreating the uniforms object would reset
+  // the shader material reference, causing a flicker. All values are kept in sync via useFrame.
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
@@ -51,6 +54,7 @@ export function AudioShaderMaterial({ baseColor, roughness = 0.6, metalness = 0.
       uSpectrogramIntensity: { value: params.spectrogramIntensity },
       uPatternType: { value: getPatternType(params.textureMode) },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
   

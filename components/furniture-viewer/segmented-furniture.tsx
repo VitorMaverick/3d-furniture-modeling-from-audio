@@ -353,17 +353,16 @@ function Segment({
   const { params } = useFurniture();
   
   // Calcula a posicao base (centro do raio, sem deslocamento de onda)
-  const basePosition = useRef<[number, number, number]>(() => {
+  const basePosition = useRef<[number, number, number]>((() => {
     const px = position[0];
     const pz = position[2];
     const dist = Math.sqrt(px * px + pz * pz);
     if (dist > 0.01) {
-      // Remove o deslocamento inicial para obter a posicao base
       const { dx, dz } = getInitialWaveDisplacement(layerIndex, totalLayers, position, 0.8);
       return [position[0] - dx, position[1], position[2] - dz] as [number, number, number];
     }
     return position;
-  });
+  })());
   
   useFrame((state) => {
     if (!meshRef.current) return;
@@ -381,7 +380,7 @@ function Segment({
     const displacement = (waveIntensity - 0.5) * params.waveIntensity * 0.06;
     
     // Calcula direcao radial do centro
-    const base = typeof basePosition.current === 'function' ? basePosition.current() : basePosition.current;
+    const base = basePosition.current;
     const dx = base[0];
     const dz = base[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
@@ -1195,12 +1194,12 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       
       {/* Segmentos da base */}
       {baseSegments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Segmentos do encosto */}
       {backSegments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios da base */}
@@ -1278,7 +1277,7 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
       
       {/* Segmentos */}
       {segments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios */}
@@ -1349,7 +1348,7 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
       
       {/* Segmentos */}
       {segments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios - mais visiveis */}
@@ -1459,12 +1458,12 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       
       {/* Segmentos - semicirculo frontal */}
       {frontSegments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Segmentos - semicirculo traseiro */}
       {backSegments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios - frontal */}
@@ -1546,12 +1545,12 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       
       {/* Segmentos - painel esquerdo */}
       {leftSegments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Segmentos - painel direito */}
       {rightSegments.map((seg) => (
-        <Segment key={seg.key} {...seg} />
+        <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios - esquerdo */}

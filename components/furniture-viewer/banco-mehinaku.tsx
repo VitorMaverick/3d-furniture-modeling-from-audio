@@ -64,7 +64,7 @@ export function BancoMehinaku({ position = [0, 0, 0] }: { position?: [number, nu
         <AudioMesh
           position={[0, 0, -bancoMehinakuTopHeight / 2]}
           baseColor={bancoMehinakuColor}
-          geometry={topGeometry}
+          geometry={<primitive object={topGeometry} attach="geometry" />}
           receiveShadow
         />
       </group>

@@ -3,6 +3,7 @@
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useFurniture } from "@/lib/furniture-context";
+import type { AIWaveParams } from "@/lib/furniture-context";
 import * as THREE from "three";
 import { Line } from "@react-three/drei";
 
@@ -61,15 +62,61 @@ function getSTFTIntensity(normalizedPosition: number, segmentIndex: number, tota
   return Math.max(0, Math.min(1, freqComponent * timeComponent));
 }
 
+// Intensidade das ondas gerada a partir dos parâmetros de IA
+function getAIWaveIntensity(
+  normalizedLayer: number,
+  normalizedSeg: number,
+  aiParams: AIWaveParams
+): { intensity: number; scale: number } {
+  // Mapeia bandas de frequência para zonas de altura
+  let baseAmplitude: number;
+  if (normalizedLayer < 0.33) {
+    baseAmplitude = aiParams.lowFreqAmplitude;
+  } else if (normalizedLayer < 0.66) {
+    const t = (normalizedLayer - 0.33) / 0.33;
+    baseAmplitude = aiParams.lowFreqAmplitude * (1 - t) + aiParams.midFreqAmplitude * t;
+  } else {
+    const t = (normalizedLayer - 0.66) / 0.34;
+    baseAmplitude = aiParams.midFreqAmplitude * (1 - t) + aiParams.highFreqAmplitude * t;
+  }
+
+  // Oscilações angulares controladas pela complexidade
+  const oscillations = 3 + Math.round(aiParams.complexity * 8);
+  const angularWave = Math.sin(normalizedSeg * Math.PI * 2 * oscillations) * 0.4;
+
+  // Oscilações verticais controladas pela densidade
+  const vertOscillations = 2 + Math.round(aiParams.density * 5);
+  const verticalWave = Math.sin(normalizedLayer * Math.PI * vertOscillations) * 0.15;
+
+  const intensity = Math.max(0, Math.min(1, baseAmplitude + angularWave * baseAmplitude + verticalWave));
+  const scale = 0.5 + intensity * 0.8;
+
+  return { intensity, scale };
+}
+
+// Cores baseadas na paleta gerada pela IA
+function getAIWaveColor(
+  normalizedY: number,
+  _intensity: number = 1,
+  aiParams: AIWaveParams
+): THREE.Color {
+  const palette = aiParams.colorPalette.map((hex) => new THREE.Color(hex));
+  const t = Math.min(1, Math.max(0, normalizedY)) * (palette.length - 1);
+  const idx = Math.min(Math.floor(t), palette.length - 2);
+  const frac = t - idx;
+  return palette[idx].clone().lerp(palette[idx + 1], frac);
+}
+
 // Calcula o deslocamento inicial baseado no modo de textura
 function getInitialDisplacement(
-  layerIndex: number, 
-  totalLayers: number, 
+  layerIndex: number,
+  totalLayers: number,
   segmentIndex: number,
   totalSegments: number,
   basePosition: [number, number, number],
   textureMode: string = "waveform",
-  intensityMultiplier: number = 0.8
+  intensityMultiplier: number = 0.8,
+  aiWaveParams?: AIWaveParams | null
 ): { dx: number, dz: number, scale: number } {
   const normalizedLayer = layerIndex / Math.max(totalLayers - 1, 1);
   const normalizedSeg = segmentIndex / Math.max(totalSegments - 1, 1);
@@ -121,6 +168,20 @@ function getInitialDisplacement(
       const combined = (waveComponent + fftComponent + stftComponent) / 2.5;
       intensity = 0.5 + combined * 0.5;
       scaleModifier = 0.5 + Math.abs(combined) * 0.8;
+      break;
+    }
+
+    case "ai-image": {
+      if (!aiWaveParams) {
+        const waveAmp = getWaveformIntensity(normalizedLayer, 0);
+        const angularWave = Math.sin(normalizedSeg * Math.PI * 8) * 0.4;
+        intensity = waveAmp + angularWave * waveAmp;
+        scaleModifier = 0.6 + Math.abs(intensity) * 0.6;
+      } else {
+        const { intensity: aiInt, scale } = getAIWaveIntensity(normalizedLayer, normalizedSeg, aiWaveParams);
+        intensity = aiInt;
+        scaleModifier = scale;
+      }
       break;
     }
 
@@ -275,10 +336,11 @@ function getCombinedColor(normalizedY: number, intensity: number = 1, baseColor?
 
 // Funcao principal que seleciona a cor baseado no modo de textura
 function getTextureColor(
-  normalizedY: number, 
-  intensity: number = 1, 
-  baseColor?: string, 
-  textureMode: string = "waveform"
+  normalizedY: number,
+  intensity: number = 1,
+  baseColor?: string,
+  textureMode: string = "waveform",
+  aiWaveParams?: AIWaveParams | null
 ): THREE.Color {
   switch (textureMode) {
     case "waveform":
@@ -289,6 +351,10 @@ function getTextureColor(
       return getSTFTColor(normalizedY, intensity, baseColor);
     case "combined":
       return getCombinedColor(normalizedY, intensity, baseColor);
+    case "ai-image":
+      return aiWaveParams
+        ? getAIWaveColor(normalizedY, intensity, aiWaveParams)
+        : getWaveformColor(normalizedY, intensity, baseColor);
     default:
       return getWaveformColor(normalizedY, intensity, baseColor);
   }
@@ -515,7 +581,8 @@ function generateCylinderSegmentsWithWires(
   totalHeight: number,
   segmentsPerRing: number,
   baseColor?: string,
-  textureMode: string = "waveform"
+  textureMode: string = "waveform",
+  aiWaveParams?: AIWaveParams | null
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
@@ -532,21 +599,21 @@ function generateCylinderSegmentsWithWires(
     
     const normalizedY = (y - baseY) / totalHeight;
     const currentLayerPositions: [number, number, number][] = [];
-    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode);
-    
+    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
+
     for (let seg = 0; seg < segmentsPerRing; seg++) {
       const angle = (seg / segmentsPerRing) * Math.PI * 2;
       const baseX = position[0] + Math.cos(angle) * currentRadius;
       const baseZ = position[2] + Math.sin(angle) * currentRadius;
-      
+
       // Aplica deslocamento inicial baseado no modo de textura
       const { dx, dz, scale: scaleModifier } = getInitialDisplacement(
-        layer, layers, seg, segmentsPerRing, [baseX, y, baseZ], textureMode
+        layer, layers, seg, segmentsPerRing, [baseX, y, baseZ], textureMode, 0.8, aiWaveParams
       );
       const x = baseX + dx;
       const z = baseZ + dz;
-      
-      const color = getTextureColor(normalizedY, seg / segmentsPerRing, baseColor, textureMode);
+
+      const color = getTextureColor(normalizedY, seg / segmentsPerRing, baseColor, textureMode, aiWaveParams);
 
       // Segmentos pequenos e finos - tamanho varia com o modo
       const circumference = 2 * Math.PI * currentRadius;
@@ -626,7 +693,8 @@ function generateSemicylinderSegmentsWithWires(
   baseColor?: string,
   startAngle: number = -Math.PI / 2,
   arcAngle: number = Math.PI,
-  textureMode: string = "waveform"
+  textureMode: string = "waveform",
+  aiWaveParams?: AIWaveParams | null
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
@@ -645,22 +713,22 @@ function generateSemicylinderSegmentsWithWires(
     
     const normalizedY = (y - baseY) / totalHeight;
     const currentLayerPositions: [number, number, number][] = [];
-    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode);
-    
+    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
+
     for (let seg = 0; seg <= actualSegments; seg++) {
       // Distribui segmentos no arco especificado
       const angle = startAngle + (seg / actualSegments) * arcAngle;
       const baseX = position[0] + Math.cos(angle) * currentRadius;
       const baseZ = position[2] + Math.sin(angle) * currentRadius;
-      
+
       // Aplica deslocamento inicial baseado no modo de textura
       const { dx, dz, scale: scaleModifier } = getInitialDisplacement(
-        layer, layers, seg, actualSegments, [baseX, y, baseZ], textureMode
+        layer, layers, seg, actualSegments, [baseX, y, baseZ], textureMode, 0.8, aiWaveParams
       );
       const x = baseX + dx;
       const z = baseZ + dz;
-      
-      const color = getTextureColor(normalizedY, seg / actualSegments, baseColor, textureMode);
+
+      const color = getTextureColor(normalizedY, seg / actualSegments, baseColor, textureMode, aiWaveParams);
 
       // Segmentos pequenos e finos - tamanho varia com o modo
       const arcLength = arcAngle * currentRadius;
@@ -727,7 +795,8 @@ function generateFlatPanelSegmentsWithWires(
   segmentsPerRow: number,
   baseColor?: string,
   orientation: "front" | "back" = "front",
-  textureMode: string = "waveform"
+  textureMode: string = "waveform",
+  aiWaveParams?: AIWaveParams | null
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
@@ -753,20 +822,20 @@ function generateFlatPanelSegmentsWithWires(
     
     const normalizedY = (y - baseY) / totalHeight;
     const currentLayerPositions: [number, number, number][] = [];
-    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode);
-    
+    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
+
     for (let seg = 0; seg <= actualSegments; seg++) {
       const normalizedSeg = seg / actualSegments;
-      
+
       // Distribui segmentos linearmente ao longo da largura
       const xOffset = -width / 2 + seg * segWidth;
       const baseX = position[0] + xOffset;
       const baseZ = position[2];
-      
+
       // Calcula deslocamento Z baseado no modo de textura
       let zDisplacement = 0;
       let scaleModifier = 1;
-      
+
       switch (textureMode) {
         case "waveform": {
           // Forma de onda: cada coluna e uma amostra no tempo, altura e a amplitude
@@ -842,6 +911,31 @@ function generateFlatPanelSegmentsWithWires(
           scaleModifier = 0.5 + Math.abs(combined) * 0.8;
           break;
         }
+        case "ai-image": {
+          if (!aiWaveParams) {
+            const amp = getWaveformIntensity(normalizedSeg, 0);
+            const wave = Math.sin(normalizedSeg * Math.PI * 8) * amp;
+            const env = Math.sin(normalizedLayer * Math.PI);
+            zDisplacement = wave * env * maxDisplacement * 1.5;
+            scaleModifier = 0.6 + Math.abs(wave) * env * 0.6;
+          } else {
+            let baseAmp: number;
+            if (normalizedLayer < 0.33) baseAmp = aiWaveParams.lowFreqAmplitude;
+            else if (normalizedLayer < 0.66) {
+              const t = (normalizedLayer - 0.33) / 0.33;
+              baseAmp = aiWaveParams.lowFreqAmplitude * (1 - t) + aiWaveParams.midFreqAmplitude * t;
+            } else {
+              const t = (normalizedLayer - 0.66) / 0.34;
+              baseAmp = aiWaveParams.midFreqAmplitude * (1 - t) + aiWaveParams.highFreqAmplitude * t;
+            }
+            const osc = 2 + Math.round(aiWaveParams.complexity * 6);
+            const wave = Math.sin(normalizedSeg * Math.PI * 2 * osc) * baseAmp;
+            const env = Math.sin(normalizedLayer * Math.PI);
+            zDisplacement = wave * env * maxDisplacement * 1.5;
+            scaleModifier = 0.5 + Math.abs(wave) * env * 0.7;
+          }
+          break;
+        }
         default: {
           // Solid: sem ondulacao, apenas estrutura plana
           zDisplacement = 0;
@@ -849,15 +943,15 @@ function generateFlatPanelSegmentsWithWires(
           break;
         }
       }
-      
+
       const x = baseX;
       const z = baseZ + zDisplacement * zDirection;
-      
-      const color = getTextureColor(normalizedY, normalizedSeg, baseColor, textureMode);
-      
+
+      const color = getTextureColor(normalizedY, normalizedSeg, baseColor, textureMode, aiWaveParams);
+
       const segPos: [number, number, number] = [x, y, z];
       currentLayerPositions.push(segPos);
-      
+
       segments.push({
         key: `flat-${orientation}-${layer}-${seg}`,
         position: segPos,
@@ -915,7 +1009,8 @@ function generateLateralFlatPanelSegmentsWithWires(
   segmentsPerRow: number,
   baseColor?: string,
   orientation: "left" | "right" = "left",
-  textureMode: string = "waveform"
+  textureMode: string = "waveform",
+  aiWaveParams?: AIWaveParams | null
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
@@ -941,20 +1036,20 @@ function generateLateralFlatPanelSegmentsWithWires(
     
     const normalizedY = (y - baseY) / totalHeight;
     const currentLayerPositions: [number, number, number][] = [];
-    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode);
-    
+    const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
+
     for (let seg = 0; seg <= actualSegments; seg++) {
       const normalizedSeg = seg / actualSegments;
-      
+
       // Distribui segmentos linearmente ao longo da profundidade (eixo Z)
       const zOffset = -depth / 2 + seg * segDepth;
       const baseX = position[0];
       const baseZ = position[2] + zOffset;
-      
+
       // Calcula deslocamento X baseado no modo de textura
       let xDisplacement = 0;
       let scaleModifier = 1;
-      
+
       switch (textureMode) {
         case "waveform": {
           // Forma de onda: cada coluna e uma amostra no tempo, altura e a amplitude
@@ -1005,21 +1100,46 @@ function generateLateralFlatPanelSegmentsWithWires(
           scaleModifier = 0.5 + Math.abs(combined) * 0.8;
           break;
         }
+        case "ai-image": {
+          if (!aiWaveParams) {
+            const amp = getWaveformIntensity(normalizedSeg, 0);
+            const wave = Math.sin(normalizedSeg * Math.PI * 8) * amp;
+            const env = Math.sin(normalizedLayer * Math.PI);
+            xDisplacement = wave * env * maxDisplacement * 1.5;
+            scaleModifier = 0.6 + Math.abs(wave) * env * 0.6;
+          } else {
+            let baseAmp: number;
+            if (normalizedLayer < 0.33) baseAmp = aiWaveParams.lowFreqAmplitude;
+            else if (normalizedLayer < 0.66) {
+              const t = (normalizedLayer - 0.33) / 0.33;
+              baseAmp = aiWaveParams.lowFreqAmplitude * (1 - t) + aiWaveParams.midFreqAmplitude * t;
+            } else {
+              const t = (normalizedLayer - 0.66) / 0.34;
+              baseAmp = aiWaveParams.midFreqAmplitude * (1 - t) + aiWaveParams.highFreqAmplitude * t;
+            }
+            const osc = 2 + Math.round(aiWaveParams.complexity * 6);
+            const wave = Math.sin(normalizedSeg * Math.PI * 2 * osc) * baseAmp;
+            const env = Math.sin(normalizedLayer * Math.PI);
+            xDisplacement = wave * env * maxDisplacement * 1.5;
+            scaleModifier = 0.5 + Math.abs(wave) * env * 0.7;
+          }
+          break;
+        }
         default: {
           xDisplacement = 0;
           scaleModifier = 1;
           break;
         }
       }
-      
+
       const x = baseX + xDisplacement * xDirection;
       const z = baseZ;
-      
-      const color = getTextureColor(normalizedY, normalizedSeg, baseColor, textureMode);
-      
+
+      const color = getTextureColor(normalizedY, normalizedSeg, baseColor, textureMode, aiWaveParams);
+
       const segPos: [number, number, number] = [x, y, z];
       currentLayerPositions.push(segPos);
-      
+
       segments.push({
         key: `lateral-${orientation}-${layer}-${seg}`,
         position: segPos,
@@ -1126,6 +1246,7 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
     chairColor,
     segmentsPerLayer,
     textureMode,
+    aiWaveParams,
   } = params;
 
   const seatY = chairLegHeight + chairSeatHeight / 2;
@@ -1152,9 +1273,10 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       totalHeight,
       Math.floor(segmentsPerLayer * 0.8),
       chairColor,
-      textureMode
+      textureMode,
+      aiWaveParams
     );
-    
+
     // Encosto - formato semicirculo (apenas a parte de tras) - rente a borda do assento
     // Posiciona no centro (Z=0) para que o semicirculo fique na borda traseira do assento
     const { segments: backSegs, wires: backW } = generateSemicylinderSegmentsWithWires(
@@ -1169,7 +1291,8 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       chairColor,
       -Math.PI,
       Math.PI,
-      textureMode
+      textureMode,
+      aiWaveParams
     );
     
     return { 
@@ -1178,7 +1301,7 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` }))
     };
-  }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode]);
+  }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode, aiWaveParams]);
   
   return (
     <group position={position}>
@@ -1240,6 +1363,7 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
     tableColor,
     segmentsPerLayer,
     textureMode,
+    aiWaveParams,
   } = params;
 
   const topY = tableLegHeight + tableTopHeight / 2;
@@ -1261,9 +1385,10 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
       totalHeight,
       segmentsPerLayer,
       tableColor,
-      textureMode
+      textureMode,
+      aiWaveParams
     );
-  }, [tableLegHeight, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, tableColor, textureMode]);
+  }, [tableLegHeight, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, tableColor, textureMode, aiWaveParams]);
   
   return (
     <group position={position}>
@@ -1314,6 +1439,7 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
     roundTableColor,
     segmentsPerLayer,
     textureMode,
+    aiWaveParams,
   } = params;
 
   const totalHeight = roundTableBaseHeight + roundTableTopHeight;
@@ -1321,18 +1447,19 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
   
   const { segments, wires } = useMemo(() => {
     return generateCylinderSegmentsWithWires(
-      roundTableBaseTopRadius, 
-      roundTableBaseBottomRadius, 
+      roundTableBaseTopRadius,
+      roundTableBaseBottomRadius,
       roundTableBaseHeight,
       [0, roundTableBaseHeight / 2, 0],
-      segmentHeight, 
-      0, 
-      totalHeight, 
+      segmentHeight,
+      0,
+      totalHeight,
       segmentsPerLayer,
       roundTableColor,
-      textureMode
+      textureMode,
+      aiWaveParams
     );
-  }, [roundTableBaseTopRadius, roundTableBaseBottomRadius, roundTableBaseHeight, segmentHeight, totalHeight, segmentsPerLayer, roundTableColor, textureMode]);
+  }, [roundTableBaseTopRadius, roundTableBaseBottomRadius, roundTableBaseHeight, segmentHeight, totalHeight, segmentsPerLayer, roundTableColor, textureMode, aiWaveParams]);
   
   return (
     <group position={position}>
@@ -1384,6 +1511,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
     bancoMehinakuColor,
     segmentsPerLayer,
     textureMode,
+    aiWaveParams,
   } = params;
 
   const topY = bancoMehinakuLegHeight + bancoMehinakuTopHeight / 2;
@@ -1407,9 +1535,10 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       Math.floor(segmentsPerLayer * 0.6),
       bancoMehinakuColor,
       "front",
-      textureMode
+      textureMode,
+      aiWaveParams
     );
-    
+
     // Painel traseiro (na borda traseira da tampa)
     const { segments: backSegs, wires: backW } = generateFlatPanelSegmentsWithWires(
       panelWidth,
@@ -1421,7 +1550,8 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       Math.floor(segmentsPerLayer * 0.6),
       bancoMehinakuColor,
       "back",
-      textureMode
+      textureMode,
+      aiWaveParams
     );
     
     return { 
@@ -1430,7 +1560,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` }))
     };
-  }, [bancoMehinakuTopDepth, bancoMehinakuLegHeight, totalHeight, segmentHeight, segmentsPerLayer, panelWidth, bancoMehinakuColor, textureMode]);
+  }, [bancoMehinakuTopDepth, bancoMehinakuLegHeight, totalHeight, segmentHeight, segmentsPerLayer, panelWidth, bancoMehinakuColor, textureMode, aiWaveParams]);
   
   // Geometria do tampo com pontas curvas
   const topGeometry = useMemo(() => {
@@ -1503,6 +1633,7 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
     bancoWaujaColor,
     segmentsPerLayer,
     textureMode,
+    aiWaveParams,
   } = params;
 
   const totalHeight = bancoWaujaHeight;
@@ -1523,9 +1654,10 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       Math.floor(segmentsPerLayer * 0.6),
       bancoWaujaColor,
       "left",
-      textureMode
+      textureMode,
+      aiWaveParams
     );
-    
+
     // Painel direito (lateral direita)
     const { segments: rightSegs, wires: rightW } = generateLateralFlatPanelSegmentsWithWires(
       panelDepth,
@@ -1537,7 +1669,8 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       Math.floor(segmentsPerLayer * 0.6),
       bancoWaujaColor,
       "right",
-      textureMode
+      textureMode,
+      aiWaveParams
     );
     
     return { 
@@ -1546,7 +1679,7 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       rightSegments: rightSegs.map(s => ({ ...s, key: `right-${s.key}` })),
       rightWires: rightW.map(w => ({ ...w, key: `right-${w.key}` }))
     };
-  }, [bancoWaujaWidth, bancoWaujaHeight, totalHeight, segmentHeight, segmentsPerLayer, panelDepth, bancoWaujaColor, textureMode]);
+  }, [bancoWaujaWidth, bancoWaujaHeight, totalHeight, segmentHeight, segmentsPerLayer, panelDepth, bancoWaujaColor, textureMode, aiWaveParams]);
   
   return (
     <group position={position}>

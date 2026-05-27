@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download } from "lucide-react";
 import { exportToSTL, exportToOBJ } from "@/lib/stl-exporter";
+import { FrequencyUploadSection } from "@/components/furniture-viewer/frequency-upload-modal";
 import { useState } from "react";
 
 export function Sidebar() {
@@ -224,12 +225,12 @@ export function Sidebar() {
                       STFT
                     </TabsTrigger>
                   </TabsList>
-                  <TabsList className="grid w-full grid-cols-1 mt-1">
-                    <TabsTrigger 
-                      value="combined" 
-                      className="text-xs py-1.5"
-                    >
+                  <TabsList className="grid w-full grid-cols-2 mt-1">
+                    <TabsTrigger value="combined" className="text-xs py-1.5">
                       Combinado
+                    </TabsTrigger>
+                    <TabsTrigger value="ai-image" className="text-xs py-1.5">
+                      IA 🤖
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -689,6 +690,11 @@ export function Sidebar() {
               </div>
             </div>
           )}
+
+          <Separator />
+
+          {/* IA Generativa de Ondas */}
+          <FrequencyUploadSection />
 
           <Separator />
 

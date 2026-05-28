@@ -1,6 +1,10 @@
 "use client";
 
 import { useFurniture, FurnitureTab, TextureMode } from "@/lib/furniture-context";
+import { useRecording } from "@/lib/recording-context";
+import { useImageCapture } from "@/lib/image-capture-context";
+import { useExportVideo, VideoDuration, VideoFPS } from "@/hooks/useExportVideo";
+import { useExportGIF, GIFDuration, GIFFPS } from "@/hooks/useExportGIF";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -8,14 +12,29 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download, Camera, Video, Image, X } from "lucide-react";
 import { exportToSTL, exportToOBJ } from "@/lib/stl-exporter";
 import { FrequencyUploadSection } from "@/components/furniture-viewer/frequency-upload-modal";
 import { useState } from "react";
+import type { ImageFormat, ImageResolution } from "@/hooks/useExportImage";
 
 export function Sidebar() {
   const { params, setParams, resetParams, sceneRef } = useFurniture();
   const [exportFormat, setExportFormat] = useState<"stl" | "obj">("stl");
+
+  // Media export state
+  const { triggerCapture } = useImageCapture();
+  const { recordingState } = useRecording();
+  const { isRecording: isVideoRecording, startRecording: startVideo, cancelRecording: cancelVideo } = useExportVideo();
+  const { isRecording: isGIFRecording, startRecording: startGIF, cancelRecording: cancelGIF } = useExportGIF();
+  const [imageResolution, setImageResolution] = useState<ImageResolution>("1080p");
+  const [videoDuration, setVideoDuration] = useState<VideoDuration>(5);
+  const [videoFPS, setVideoFPS] = useState<VideoFPS>(30);
+  const [gifDuration, setGifDuration] = useState<GIFDuration>(3);
+  const [gifFPS, setGifFPS] = useState<GIFFPS>(10);
+
+  const anyRecording = isVideoRecording || isGIFRecording;
 
   const handleExport = () => {
     if (!sceneRef.current) {
@@ -91,6 +110,180 @@ export function Sidebar() {
               <Download className="mr-2 h-4 w-4" />
               Exportar {exportFormat.toUpperCase()}
             </Button>
+          </div>
+
+          {/* Recording progress overlay */}
+          {anyRecording && (
+            <div className="space-y-3 rounded-lg border border-primary/50 bg-primary/10 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  <span className="text-sm font-semibold text-foreground">
+                    {isGIFRecording ? "Gravando GIF..." : "Gravando Video..."}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={isGIFRecording ? cancelGIF : cancelVideo}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <Progress value={recordingState.progress} className="h-2" />
+              <span className="text-xs text-muted-foreground">{Math.round(recordingState.progress)}%</span>
+            </div>
+          )}
+
+          {/* Exportar Mídia */}
+          <div className="space-y-3 rounded-lg border border-border/50 bg-card/50 p-4">
+            <div className="flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">Exportar Mídia</h2>
+            </div>
+
+            {/* Image export */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Image className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Imagem</span>
+              </div>
+              <div className="flex gap-1.5">
+                <Button
+                  variant={imageResolution === "1080p" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setImageResolution("1080p")}
+                >
+                  1080p
+                </Button>
+                <Button
+                  variant={imageResolution === "4k" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setImageResolution("4k")}
+                >
+                  4K
+                </Button>
+              </div>
+              <div className="flex gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => triggerCapture("png", imageResolution)}
+                >
+                  PNG
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => triggerCapture("jpeg", imageResolution)}
+                >
+                  JPEG
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => triggerCapture("webp", imageResolution)}
+                >
+                  WebP
+                </Button>
+              </div>
+            </div>
+
+            <Separator className="my-1" />
+
+            {/* Video export */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Video className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Video 360°</span>
+              </div>
+              <div className="flex gap-1.5">
+                {([3, 5, 10] as VideoDuration[]).map((d) => (
+                  <Button
+                    key={d}
+                    variant={videoDuration === d ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => setVideoDuration(d)}
+                  >
+                    {d}s
+                  </Button>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                {([24, 30] as VideoFPS[]).map((f) => (
+                  <Button
+                    key={f}
+                    variant={videoFPS === f ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => setVideoFPS(f)}
+                  >
+                    {f} fps
+                  </Button>
+                ))}
+              </div>
+              <Button
+                className="w-full"
+                size="sm"
+                disabled={anyRecording}
+                onClick={() => startVideo(videoDuration, videoFPS)}
+              >
+                <Download className="mr-2 h-3.5 w-3.5" />
+                {isVideoRecording ? "Gravando..." : "Gravar Video (WebM)"}
+              </Button>
+            </div>
+
+            <Separator className="my-1" />
+
+            {/* GIF export */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">GIF Animado</span>
+              </div>
+              <div className="flex gap-1.5">
+                {([3, 5] as GIFDuration[]).map((d) => (
+                  <Button
+                    key={d}
+                    variant={gifDuration === d ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => setGifDuration(d)}
+                  >
+                    {d}s
+                  </Button>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                {([10, 15] as GIFFPS[]).map((f) => (
+                  <Button
+                    key={f}
+                    variant={gifFPS === f ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => setGifFPS(f)}
+                  >
+                    {f} fps
+                  </Button>
+                ))}
+              </div>
+              <Button
+                className="w-full"
+                size="sm"
+                disabled={anyRecording}
+                onClick={() => startGIF(gifDuration, gifFPS)}
+              >
+                <Download className="mr-2 h-3.5 w-3.5" />
+                {isGIFRecording ? "Gerando GIF..." : "Gerar GIF"}
+              </Button>
+            </div>
           </div>
 
           {/* Abas de seleção do móvel */}

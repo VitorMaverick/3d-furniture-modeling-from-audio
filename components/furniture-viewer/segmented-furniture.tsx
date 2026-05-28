@@ -443,8 +443,13 @@ function Segment({
   useFrame((state) => {
     if (!meshRef.current) return;
     
-    // Animacao apenas no modo waveform, outros modos mantem forma estatica
-    if (params.animationPaused || params.textureMode !== "waveform") return;
+    // Animacao apenas no modo waveform; outros modos resetam para a posicao nominal
+    if (params.animationPaused || params.textureMode !== "waveform") {
+      meshRef.current.position.set(position[0], position[1], position[2]);
+      meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
+      meshRef.current.scale.set(scale[0], scale[1], scale[2]);
+      return;
+    }
 
     const time = state.clock.elapsedTime * params.animationSpeed;
     const normalizedLayer = layerIndex / Math.max(totalLayers - 1, 1);

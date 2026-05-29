@@ -15,6 +15,18 @@ export interface AIWaveParams {
   dominantBand: "low" | "mid" | "high";
   colorPalette: string[];
   message: string;
+  
+  // Novos campos (opcionais para retrocompatibilidade)
+  roughness?: number;
+  brightness?: number;
+  temporalVariance?: number;
+  rhythmicRegularity?: number;
+  subBassEnergy?: number;
+  bassEnergy?: number;
+  lowMidEnergy?: number;
+  midEnergy?: number;
+  highMidEnergy?: number;
+  trebleEnergy?: number;
 }
 
 export interface FurnitureParams {

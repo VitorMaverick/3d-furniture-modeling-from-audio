@@ -28,6 +28,7 @@ export interface AIWaveParams {
   highMidEnergy?: number;
   trebleEnergy?: number;
 }
+export type TextureMode = "solid" | "waveform" | "fft" | "spectrogram" | "combined";
 
 export interface FurnitureParams {
   // Aba ativa

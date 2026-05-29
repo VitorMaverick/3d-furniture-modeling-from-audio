@@ -4,7 +4,18 @@ import { createContext, useContext, useState, useRef, useCallback, ReactNode, Re
 import * as THREE from "three";
 
 export type FurnitureTab = "chair" | "table" | "roundTable" | "bancoMehinaku" | "bancoWauja";
-export type TextureMode = "solid" | "waveform" | "fft" | "spectrogram" | "combined";
+export type TextureMode = "solid" | "waveform" | "fft" | "spectrogram" | "combined" | "ai-image";
+
+export interface AIWaveParams {
+  lowFreqAmplitude: number;
+  midFreqAmplitude: number;
+  highFreqAmplitude: number;
+  complexity: number;
+  density: number;
+  dominantBand: "low" | "mid" | "high";
+  colorPalette: string[];
+  message: string;
+}
 
 export interface FurnitureParams {
   // Aba ativa
@@ -67,6 +78,9 @@ export interface FurnitureParams {
   segmentsPerLayer: number;
   segmentSize: number;
   segmentGap: number;
+
+  // Modo IA — parâmetros gerados pela análise de imagem de frequência
+  aiWaveParams: AIWaveParams | null;
 }
 
 interface DesignContextType {
@@ -137,6 +151,9 @@ const defaultParams: FurnitureParams = {
   segmentsPerLayer: 32,
   segmentSize: 0.02,
   segmentGap: 0.005,
+
+  // Modo IA
+  aiWaveParams: null,
 };
 
 const DesignContext = createContext<DesignContextType | null>(null);

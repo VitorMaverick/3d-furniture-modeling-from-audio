@@ -15,18 +15,6 @@ export interface AIWaveParams {
   dominantBand: "low" | "mid" | "high";
   colorPalette: string[];
   message: string;
-  
-  // Novos campos para parametros acusticos detalhados (opcionais)
-  roughness?: number;
-  brightness?: number;
-  temporalVariance?: number;
-  rhythmicRegularity?: number;
-  subBassEnergy?: number;
-  bassEnergy?: number;
-  lowMidEnergy?: number;
-  midEnergy?: number;
-  highMidEnergy?: number;
-  trebleEnergy?: number;
 }
 
 export interface FurnitureParams {

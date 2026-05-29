@@ -14,17 +14,6 @@ export async function POST(request: NextRequest) {
     }
 
     const file = formData.get("image") as File | null;
-    const audioParamsStr = formData.get("audioParams") as string | null;
-
-    // Parse dos parametros de audio do Python (se fornecidos)
-    let audioParams: Record<string, unknown> | null = null;
-    if (audioParamsStr) {
-      try {
-        audioParams = JSON.parse(audioParamsStr);
-      } catch {
-        /* ignora JSON invalido */
-      }
-    }
 
     if (!file) {
       return NextResponse.json({ error: "Imagem não fornecida." }, { status: 400 });
@@ -45,7 +34,7 @@ export async function POST(request: NextRequest) {
     const buffer = await file.arrayBuffer();
     const imageBase64 = Buffer.from(buffer).toString("base64");
 
-    const result = await analyzeFrequencyImage(imageBase64, file.type, audioParams);
+    const result = await analyzeFrequencyImage(imageBase64, file.type);
     return NextResponse.json(result);
   } catch (err) {
     console.error("[analyze-frequency]", err);

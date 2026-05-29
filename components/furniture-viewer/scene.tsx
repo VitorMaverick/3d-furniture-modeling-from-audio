@@ -19,7 +19,7 @@ function SceneContent() {
       <color attach="background" args={["#1a1a2e"]} />
       <fog attach="fog" args={["#1a1a2e", 8, 25]} />
       
-      {/* Iluminação */}
+      {/* Lighting */}
       <ambientLight intensity={0.4} />
       <directionalLight 
         position={[5, 10, 5]} 
@@ -44,8 +44,8 @@ function SceneContent() {
         castShadow
       />
       
-      {/* Moveis - exibe apenas o da aba ativa */}
-      {/* Modo solid usa componentes normais, todos os outros modos usam segmentados com formato de onda */}
+      {/* Furniture — renders only the active tab */}
+      {/* Solid mode uses standard mesh components; all other modes use segmented waveform components */}
       <group ref={sceneRef}>
         {params.textureMode === "solid" ? (
           <>
@@ -66,7 +66,7 @@ function SceneContent() {
         )}
       </group>
       
-      {/* Sombras de contato */}
+      {/* Contact shadows */}
       <ContactShadows
         position={[0, -0.01, 0]}
         opacity={0.6}
@@ -75,7 +75,7 @@ function SceneContent() {
         far={10}
       />
       
-      {/* Controles de órbita */}
+      {/* Orbit controls */}
       <OrbitControls
         enablePan={true}
         enableZoom={true}
@@ -88,10 +88,10 @@ function SceneContent() {
         minPolarAngle={Math.PI * 0.1}
       />
       
-      {/* Ambiente */}
+      {/* Environment */}
       <Environment preset="studio" />
       
-      {/* Grid de referência */}
+      {/* Reference grid */}
       {params.showGrid && (
         <Grid
           args={[20, 20]}

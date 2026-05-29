@@ -248,7 +248,7 @@ export function Sidebar() {
                     />
                     <span className="text-xs text-muted-foreground">{params.segmentLayers} camadas</span>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm">Segmentos por Camada</Label>
                     <Slider
@@ -260,7 +260,7 @@ export function Sidebar() {
                     />
                     <span className="text-xs text-muted-foreground">{params.segmentsPerLayer} segmentos</span>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label className="text-sm">Tamanho dos Segmentos</Label>
                     <Slider
@@ -308,46 +308,6 @@ export function Sidebar() {
                       <span className="text-xs text-muted-foreground">{params.animationSpeed.toFixed(1)}x</span>
                     </div>
                   )}
-
-                  <div className="space-y-2">
-                    <Label className="text-sm">Intensidade Forma de Onda</Label>
-                    <Slider
-                      value={[params.waveIntensity]}
-                      onValueChange={([value]) => setParams({ waveIntensity: value })}
-                      min={0}
-                      max={1}
-                      step={0.05}
-                    />
-                    <span className="text-xs text-muted-foreground">{(params.waveIntensity * 100).toFixed(0)}%</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm">Intensidade FFT</Label>
-                    <Slider
-                      value={[params.fftIntensity]}
-                      onValueChange={([value]) => setParams({ fftIntensity: value })}
-                      min={0}
-                      max={1}
-                      step={0.05}
-                    />
-                    <span className="text-xs text-muted-foreground">{(params.fftIntensity * 100).toFixed(0)}%</span>
-                  </div>
-                </>
-              )}
-
-              {params.textureMode !== "solid" && (
-                <>
-                  <div className="space-y-2">
-                    <Label className="text-sm">Velocidade da Animação</Label>
-                    <Slider
-                      value={[params.animationSpeed]}
-                      onValueChange={([value]) => setParams({ animationSpeed: value })}
-                      min={0.1}
-                      max={3}
-                      step={0.1}
-                    />
-                    <span className="text-xs text-muted-foreground">{params.animationSpeed.toFixed(1)}x</span>
-                  </div>
 
                   {(params.textureMode === "waveform" || params.textureMode === "combined") && (
                     <div className="space-y-2">

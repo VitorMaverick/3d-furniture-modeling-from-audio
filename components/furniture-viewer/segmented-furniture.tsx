@@ -78,55 +78,65 @@ function getInitialDisplacement(
   let scaleModifier = 1;
   
   switch (textureMode) {
-    case "waveform":
-      // Forma de onda: deslocamento horizontal baseado em amplitude
-      // Varia muito no inicio, menos no meio, pouco no fim, depois sobe
-      intensity = getWaveformIntensity(normalizedLayer, 0);
-      // Escala varia com a amplitude
-      scaleModifier = 0.7 + intensity * 0.6;
+    case "waveform": {
+      const waveAmp = getWaveformIntensity(normalizedLayer, 0);
+      const angularWave = Math.sin(normalizedSeg * Math.PI * 8) * 0.4;
+      intensity = waveAmp + angularWave * waveAmp;
+      scaleModifier = 0.6 + Math.abs(intensity) * 0.6;
       break;
-      
-    case "fft":
-      // FFT: picos nas camadas inferiores (baixas frequencias)
-      intensity = getFFTIntensity(normalizedLayer);
-      // Segmentos maiores onde tem mais energia (baixas frequencias)
-      scaleModifier = 0.5 + intensity * 1.0;
+    }
+
+    case "fft": {
+      const fftMag = getFFTIntensity(normalizedSeg);
+      const isInBar = normalizedLayer < fftMag;
+      if (isInBar) {
+        intensity = fftMag * (1 - (normalizedLayer / fftMag) * 0.3);
+        scaleModifier = 0.7 + fftMag * 0.8;
+      } else {
+        intensity = 0.5;
+        scaleModifier = 0.3;
+      }
       break;
-      
-    case "spectrogram":
-      // STFT: padroes em grade (frequencia x tempo)
-      intensity = getSTFTIntensity(normalizedLayer, segmentIndex, totalSegments);
-      // Escala baseada na intensidade do espectrograma
-      scaleModifier = 0.6 + intensity * 0.8;
+    }
+
+    case "spectrogram": {
+      const stftVal = getSTFTIntensity(normalizedLayer, segmentIndex, totalSegments);
+      const freqWeight = 1 - normalizedLayer * 0.5;
+      const timeVar = Math.sin(normalizedSeg * Math.PI * 6) * 0.3 +
+                     Math.sin(normalizedSeg * Math.PI * 2.5) * 0.4;
+      intensity = stftVal * freqWeight * (0.7 + timeVar * 0.3);
+      scaleModifier = 0.5 + intensity * 0.9;
       break;
-      
+    }
+
     case "combined": {
-      // Combinacao de todos os padroes - consistente com paineis planos
-      const normalizedSeg = segmentIndex / (totalSegments || 1);
       const waveInt = getWaveformIntensity(normalizedSeg, 0);
       const fftInt = getFFTIntensity(normalizedSeg);
       const stftInt = getSTFTIntensity(normalizedLayer, segmentIndex, totalSegments);
-      
-      // Mistura os tres padroes como nos paineis
+
       const waveComponent = Math.sin(normalizedSeg * Math.PI * 6) * waveInt;
       const fftComponent = fftInt * (1 - normalizedLayer * 0.5);
       const stftComponent = stftInt;
-      
+
       const combined = (waveComponent + fftComponent + stftComponent) / 2.5;
-      intensity = 0.5 + combined * 0.5; // Normaliza para 0-1
+      intensity = 0.5 + combined * 0.5;
       scaleModifier = 0.5 + Math.abs(combined) * 0.8;
       break;
     }
-      
+
+    case "solid":
+      intensity = 0.5;
+      scaleModifier = 1;
+      break;
+
     default:
-      // Padrao baseado em forma de onda
-      intensity = getWaveformIntensity(normalizedLayer, 0);
-      scaleModifier = 0.7 + intensity * 0.6;
+      intensity = 0.5;
+      scaleModifier = 1;
       break;
   }
-  
+
   // Deslocamento radial baseado na intensidade
-  const displacement = (intensity - 0.5) * intensityMultiplier * 0.08;
+  const displacement = (intensity - 0.5) * intensityMultiplier * 0.15;
   
   // Calcula direcao radial do centro
   const px = basePosition[0];
@@ -367,39 +377,42 @@ function Segment({
   useFrame((state) => {
     if (!meshRef.current) return;
     
-    // Se animacao pausada, mantem a posicao inicial com forma de onda
-    if (params.animationPaused) return;
-    
+    // Animacao apenas no modo waveform, outros modos mantem forma estatica
+    if (params.animationPaused || params.textureMode !== "waveform") return;
+
     const time = state.clock.elapsedTime * params.animationSpeed;
     const normalizedLayer = layerIndex / Math.max(totalLayers - 1, 1);
-    
-    // Intensidade baseada no padrao de forma de onda com variacao temporal
-    const waveIntensity = getWaveformIntensity(normalizedLayer, time + timeOffset);
-    
-    // Deslocamento radial baseado na forma de onda (como picos de amplitude)
-    const displacement = (waveIntensity - 0.5) * params.waveIntensity * 0.06;
-    
+    const normalizedSeg = frequencyIndex / Math.max(totalLayers, 1);
+
+    // Forma de onda: variacao temporal com amplitude
+    const waveAmp = getWaveformIntensity(normalizedLayer, time + timeOffset);
+    const angularWave = Math.sin(normalizedSeg * Math.PI * 8 + time * 2) * 0.3;
+    const intensity = waveAmp + angularWave * waveAmp * 0.5;
+
+    // Deslocamento radial baseado na intensidade calculada
+    const displacement = (intensity - 0.5) * params.waveIntensity * 0.08;
+
     // Calcula direcao radial do centro
     const base = basePosition.current;
     const dx = base[0];
     const dz = base[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
-    
+
     if (dist > 0.01) {
       const dirX = dx / dist;
       const dirZ = dz / dist;
       meshRef.current.position.x = base[0] + dirX * displacement;
       meshRef.current.position.z = base[2] + dirZ * displacement;
     }
-    
-    // Rotacao baseada na forma de onda
-    const rotationAmount = waveIntensity * params.waveIntensity * Math.PI * 0.15;
-    meshRef.current.rotation.x = rotation[0] + rotationAmount * 0.3;
-    meshRef.current.rotation.z = rotation[2] + Math.sin(time * 1.5 + timeOffset) * 0.1 * params.waveIntensity;
-    
-    // Escala pulsante baseada em FFT
-    const fftPulse = 1 + (waveIntensity * 0.2 * params.fftIntensity);
-    meshRef.current.scale.set(scale[0] * fftPulse, scale[1], scale[2] * fftPulse);
+
+    // Rotacao baseada na intensidade
+    const rotationAmount = intensity * params.waveIntensity * Math.PI * 0.12;
+    meshRef.current.rotation.x = rotation[0] + rotationAmount * 0.25;
+    meshRef.current.rotation.z = rotation[2] + Math.sin(time * 1.5 + timeOffset) * 0.08 * params.waveIntensity;
+
+    // Escala pulsante baseada na intensidade
+    const scalePulse = 1 + ((intensity - 0.5) * 0.3 * params.fftIntensity);
+    meshRef.current.scale.set(scale[0] * scalePulse, scale[1], scale[2] * scalePulse);
   });
   
   return (
@@ -533,8 +546,8 @@ function generateCylinderSegmentsWithWires(
       const x = baseX + dx;
       const z = baseZ + dz;
       
-      const color = getTextureColor(normalizedY, 1, baseColor, textureMode);
-      
+      const color = getTextureColor(normalizedY, seg / segmentsPerRing, baseColor, textureMode);
+
       // Segmentos pequenos e finos - tamanho varia com o modo
       const circumference = 2 * Math.PI * currentRadius;
       const segWidth = (circumference / segmentsPerRing) * 0.65 * scaleModifier;
@@ -647,8 +660,8 @@ function generateSemicylinderSegmentsWithWires(
       const x = baseX + dx;
       const z = baseZ + dz;
       
-      const color = getTextureColor(normalizedY, 1, baseColor, textureMode);
-      
+      const color = getTextureColor(normalizedY, seg / actualSegments, baseColor, textureMode);
+
       // Segmentos pequenos e finos - tamanho varia com o modo
       const arcLength = arcAngle * currentRadius;
       const segWidth = (arcLength / actualSegments) * 0.65 * scaleModifier;
@@ -1165,7 +1178,7 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` }))
     };
-  }, [chairSeatWidth, chairSeatDepth, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode]);
+  }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode]);
   
   return (
     <group position={position}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useRef, ReactNode, RefObject } from "react";
+import { createContext, useContext, useState, useRef, useCallback, ReactNode, RefObject } from "react";
 import * as THREE from "three";
 
 export type FurnitureTab = "chair" | "table" | "roundTable" | "bancoMehinaku" | "bancoWauja";
@@ -145,13 +145,13 @@ export function FurnitureProvider({ children }: { children: ReactNode }) {
   const [params, setParamsState] = useState<FurnitureParams>(defaultParams);
   const sceneRef = useRef<THREE.Group | null>(null);
 
-  const setParams = (newParams: Partial<FurnitureParams>) => {
+  const setParams = useCallback((newParams: Partial<FurnitureParams>) => {
     setParamsState((prev) => ({ ...prev, ...newParams }));
-  };
+  }, []);
 
-  const resetParams = () => {
+  const resetParams = useCallback(() => {
     setParamsState(defaultParams);
-  };
+  }, []);
 
   return (
     <DesignContext.Provider value={{ params, setParams, resetParams, sceneRef }}>

@@ -62,39 +62,75 @@ function getSTFTIntensity(normalizedPosition: number, segmentIndex: number, tota
   return Math.max(0, Math.min(1, freqComponent * timeComponent));
 }
 
-// Intensidade das ondas gerada a partir dos parâmetros de IA
+// Intensidade das ondas gerada a partir dos parâmetros de IA (versao expandida com sub-bandas)
 function getAIWaveIntensity(
   normalizedLayer: number,
   normalizedSeg: number,
   aiParams: AIWaveParams
 ): { intensity: number; scale: number } {
-  // Mapeia bandas de frequência para zonas de altura
-  let baseAmplitude: number;
-  if (normalizedLayer < 0.33) {
-    baseAmplitude = aiParams.lowFreqAmplitude;
-  } else if (normalizedLayer < 0.66) {
-    const t = (normalizedLayer - 0.33) / 0.33;
-    baseAmplitude = aiParams.lowFreqAmplitude * (1 - t) + aiParams.midFreqAmplitude * t;
+  // Se temos parametros detalhados de sub-bandas do Python, usa-los
+  const hasSubBands = aiParams.subBassEnergy !== undefined || aiParams.bassEnergy !== undefined;
+  
+  let baseIntensity: number;
+  
+  if (hasSubBands) {
+    // Usa as sub-bandas detalhadas do Python para mapear altura -> energia
+    if (normalizedLayer < 0.15) {
+      // Sub-bass (0-60Hz) - base do movel
+      baseIntensity = (aiParams.subBassEnergy ?? 0) * 1.5;
+    } else if (normalizedLayer < 0.30) {
+      // Bass (60-250Hz)
+      baseIntensity = (aiParams.bassEnergy ?? 0) * 1.3 + (aiParams.subBassEnergy ?? 0) * 0.3;
+    } else if (normalizedLayer < 0.45) {
+      // Low-mid (250-500Hz)
+      baseIntensity = (aiParams.lowMidEnergy ?? 0) * 1.1 + (aiParams.bassEnergy ?? 0) * 0.2;
+    } else if (normalizedLayer < 0.60) {
+      // Mid (500-2kHz)
+      baseIntensity = (aiParams.midEnergy ?? 0) * 1.0;
+    } else if (normalizedLayer < 0.80) {
+      // High-mid (2k-4kHz)
+      baseIntensity = (aiParams.highMidEnergy ?? 0) * 0.9 + (aiParams.trebleEnergy ?? 0) * 0.3;
+    } else {
+      // Treble (4k+Hz) - topo do movel
+      baseIntensity = (aiParams.trebleEnergy ?? 0) * 0.8;
+    }
   } else {
-    const t = (normalizedLayer - 0.66) / 0.34;
-    baseAmplitude = aiParams.midFreqAmplitude * (1 - t) + aiParams.highFreqAmplitude * t;
+    // Fallback para os 3 bandas simples (low/mid/high)
+    if (normalizedLayer < 0.33) {
+      baseIntensity = aiParams.lowFreqAmplitude;
+    } else if (normalizedLayer < 0.66) {
+      const t = (normalizedLayer - 0.33) / 0.33;
+      baseIntensity = aiParams.lowFreqAmplitude * (1 - t) + aiParams.midFreqAmplitude * t;
+    } else {
+      const t = (normalizedLayer - 0.66) / 0.34;
+      baseIntensity = aiParams.midFreqAmplitude * (1 - t) + aiParams.highFreqAmplitude * t;
+    }
   }
 
-  // Oscilações angulares controladas pela complexidade
-  const oscillations = 3 + Math.round(aiParams.complexity * 8);
-  const angularWave = Math.sin(normalizedSeg * Math.PI * 2 * oscillations) * 0.4;
+  // Oscilacoes angulares controladas pela complexidade
+  const waves = 3 + Math.floor(aiParams.complexity * 12);
+  const phaseShift = aiParams.rhythmicRegularity !== undefined 
+    ? (1 - aiParams.rhythmicRegularity) * Math.PI 
+    : 0;
+  const angularWave = Math.sin(normalizedSeg * Math.PI * 2 * waves + phaseShift) * aiParams.complexity * 0.5;
 
-  // Oscilações verticais controladas pela densidade
+  // Textura fina baseada em roughness
+  const fineTexture = (aiParams.roughness ?? 0) * 0.15 * 
+    Math.sin(normalizedLayer * 30 + normalizedSeg * 5);
+
+  // Oscilacoes verticais controladas pela densidade
   const vertOscillations = 2 + Math.round(aiParams.density * 5);
   const verticalWave = Math.sin(normalizedLayer * Math.PI * vertOscillations) * 0.15;
 
-  const intensity = Math.max(0, Math.min(1, baseAmplitude + angularWave * baseAmplitude + verticalWave));
+  const intensity = Math.max(0, Math.min(1, 
+    baseIntensity * (1 + angularWave * 0.5) + verticalWave + fineTexture
+  ));
   const scale = 0.5 + intensity * 0.8;
 
   return { intensity, scale };
 }
 
-// Cores baseadas na paleta gerada pela IA
+// Cores baseadas na paleta gerada pela IA (com ajuste de brightness)
 function getAIWaveColor(
   normalizedY: number,
   _intensity: number = 1,
@@ -104,7 +140,15 @@ function getAIWaveColor(
   const t = Math.min(1, Math.max(0, normalizedY)) * (palette.length - 1);
   const idx = Math.min(Math.floor(t), palette.length - 2);
   const frac = t - idx;
-  return palette[idx].clone().lerp(palette[idx + 1], frac);
+  const color = palette[idx].clone().lerp(palette[idx + 1], frac);
+  
+  // Ajusta brilho se o parametro brightness estiver disponivel
+  if (aiParams.brightness !== undefined) {
+    const brightnessMultiplier = 0.8 + aiParams.brightness * 0.4;
+    color.multiplyScalar(brightnessMultiplier);
+  }
+  
+  return color;
 }
 
 // Calcula o deslocamento inicial baseado no modo de textura

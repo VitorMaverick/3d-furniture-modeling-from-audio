@@ -20,6 +20,7 @@ export function FrequencyUploadSection() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [audioParamsText, setAudioParamsText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAIActive = params.textureMode === "ai-image";
@@ -54,6 +55,7 @@ export function FrequencyUploadSection() {
     setPreviewUrl(null);
     setResult(null);
     setError(null);
+    setAudioParamsText("");
     if (params.textureMode === "ai-image") {
       setParams({ textureMode: "waveform", aiWaveParams: null });
     }
@@ -66,6 +68,10 @@ export function FrequencyUploadSection() {
     try {
       const formData = new FormData();
       formData.append("image", imageFile);
+      // Adiciona parametros do Python se fornecidos
+      if (audioParamsText.trim()) {
+        formData.append("audioParams", audioParamsText.trim());
+      }
       const res = await fetch("/api/analyze-frequency", {
         method: "POST",
         body: formData,
@@ -168,6 +174,22 @@ export function FrequencyUploadSection() {
               e.target.value = "";
             }}
           />
+
+          {/* Campo para parametros do Python (opcional) */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">
+              Parametros do Python (opcional - cole o JSON gerado)
+            </label>
+            <textarea
+              className="w-full h-20 rounded border border-border/50 bg-background p-2 text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
+              placeholder='{"lowFreqAmplitude":0.7, "subBassEnergy":0.8, ...}'
+              value={audioParamsText}
+              onChange={(e) => setAudioParamsText(e.target.value)}
+            />
+            <p className="text-[10px] text-muted-foreground/60">
+              Cole o conteudo de parametros_audio.json para resultados mais precisos
+            </p>
+          </div>
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 

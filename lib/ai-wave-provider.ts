@@ -6,6 +6,37 @@ const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
+// Prompt enriquecido para quando ha parametros do Python
+const ENRICHED_PROMPT = `You are an expert in audio visualization and 3D furniture design.
+You will receive:
+1. An image of a frequency graph (waveform, FFT spectrum, or spectrogram).
+2. A JSON with precise acoustic parameters extracted from the audio (Python analysis).
+
+Your task: return a JSON that may refine these parameters creatively based on the image, but must keep the original parameters as the primary source of truth.
+You can adjust color palette and message based on emotional interpretation of the sound, but do NOT change the numeric parameters arbitrarily unless the image clearly suggests a different dominant band or energy distribution.
+
+Return ONLY valid JSON:
+{
+  "lowFreqAmplitude": <original or slightly adjusted>,
+  "midFreqAmplitude": <original or slightly adjusted>,
+  "highFreqAmplitude": <original or slightly adjusted>,
+  "complexity": <original>,
+  "density": <original>,
+  "dominantBand": <original>,
+  "colorPalette": ["#HEX1","#HEX2","#HEX3","#HEX4","#HEX5"],
+  "message": "<creative description in Portuguese>",
+  "roughness": <original>,
+  "brightness": <original>,
+  "temporalVariance": <original>,
+  "rhythmicRegularity": <original>,
+  "subBassEnergy": <original>,
+  "bassEnergy": <original>,
+  "lowMidEnergy": <original>,
+  "midEnergy": <original>,
+  "highMidEnergy": <original>,
+  "trebleEnergy": <original>
+}`;
+
 const FALLBACK_PRESETS: AIWaveParams[] = [
   {
     lowFreqAmplitude: 0.9,
@@ -80,6 +111,7 @@ function parseWaveParams(text: string): AIWaveParams {
   const raw = JSON.parse(jsonMatch[0]);
 
   const clamp = (v: unknown) => Math.max(0, Math.min(1, Number(v) || 0.5));
+  const clampOptional = (v: unknown) => v !== undefined ? Math.max(0, Math.min(1, Number(v))) : undefined;
   const palette =
     Array.isArray(raw.colorPalette) && raw.colorPalette.length >= 5
       ? (raw.colorPalette as string[]).slice(0, 5)
@@ -99,6 +131,17 @@ function parseWaveParams(text: string): AIWaveParams {
       typeof raw.message === "string"
         ? raw.message
         : "Padrão de frequência aplicado ao móvel.",
+    // Novos campos opcionais
+    roughness: clampOptional(raw.roughness),
+    brightness: clampOptional(raw.brightness),
+    temporalVariance: clampOptional(raw.temporalVariance),
+    rhythmicRegularity: clampOptional(raw.rhythmicRegularity),
+    subBassEnergy: clampOptional(raw.subBassEnergy),
+    bassEnergy: clampOptional(raw.bassEnergy),
+    lowMidEnergy: clampOptional(raw.lowMidEnergy),
+    midEnergy: clampOptional(raw.midEnergy),
+    highMidEnergy: clampOptional(raw.highMidEnergy),
+    trebleEnergy: clampOptional(raw.trebleEnergy),
   };
 }
 
@@ -131,6 +174,49 @@ async function tryGroqVision(
       ],
       max_tokens: 512,
       temperature: 0.2,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) throw new Error(`Groq ${res.status}`);
+  const data = await res.json();
+  return parseWaveParams(data.choices[0].message.content);
+}
+
+// Funcao para analise com parametros do Python
+async function tryGroqWithParams(
+  imageBase64: string,
+  mimeType: string,
+  audioParams: Record<string, unknown>
+): Promise<AIWaveParams> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("No GROQ_API_KEY");
+
+  const res = await fetch(GROQ_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_VISION_MODEL,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+            },
+            {
+              type: "text",
+              text: `Audio parameters from Python analysis:\n${JSON.stringify(audioParams, null, 2)}\n\n${ENRICHED_PROMPT}`,
+            },
+          ],
+        },
+      ],
+      max_tokens: 512,
+      temperature: 0.4,
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -189,8 +275,19 @@ async function tryPollinationsText(): Promise<AIWaveParams> {
 
 export async function analyzeFrequencyImage(
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  audioParams?: Record<string, unknown> | null
 ): Promise<{ params: AIWaveParams; provider: string }> {
+  // Se houver parametros do Python, tenta usar o fluxo enriquecido primeiro
+  if (audioParams) {
+    try {
+      const params = await tryGroqWithParams(imageBase64, mimeType, audioParams);
+      return { params, provider: "Groq + Python params" };
+    } catch {
+      /* cai para o fluxo normal */
+    }
+  }
+
   try {
     const params = await tryGroqVision(imageBase64, mimeType);
     return { params, provider: "Groq Vision" };

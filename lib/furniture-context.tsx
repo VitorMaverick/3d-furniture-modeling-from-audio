@@ -15,7 +15,7 @@ export interface AIWaveParams {
   dominantBand: "low" | "mid" | "high";
   colorPalette: string[];
   message: string;
-
+  
   // Novos campos (opcionais para retrocompatibilidade)
   roughness?: number;
   brightness?: number;

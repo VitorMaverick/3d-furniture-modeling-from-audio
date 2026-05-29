@@ -8,6 +8,8 @@ import { RoundTable } from "./round-table";
 import { BancoMehinaku } from "./banco-mehinaku";
 import { BancoWauja } from "./banco-wauja";
 import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoWauja } from "./segmented-furniture";
+import { RecordingController } from "./recording-controller";
+import { ImageCaptureBridge } from "./image-capture-bridge";
 import { Suspense } from "react";
 import { useFurniture } from "@/lib/furniture-context";
 
@@ -75,6 +77,10 @@ function SceneContent() {
         far={10}
       />
       
+      {/* Recording support */}
+      <RecordingController />
+      <ImageCaptureBridge />
+
       {/* Orbit controls */}
       <OrbitControls
         enablePan={true}
@@ -117,7 +123,7 @@ export function Scene() {
     <div className="absolute inset-0 md:pl-80">
       <Canvas
         shadows
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
       >
         <PerspectiveCamera makeDefault position={[3, 2, 4]} fov={50} />
         <Suspense fallback={null}>

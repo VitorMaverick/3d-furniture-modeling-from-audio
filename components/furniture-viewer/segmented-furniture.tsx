@@ -1543,7 +1543,7 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
   );
 }
 
-// Banco Mehinaku Segmentado - com dois paineis planos nas bordas
+// Banco Mehinaku Segmentado - com dois paineis planos nas bordas e colunas de parafuso de rosca
 export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
   const { params } = useFurniture();
   
@@ -1553,6 +1553,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
     bancoMehinakuTopHeight,
     bancoMehinakuLegHeight,
     bancoMehinakuColor,
+    bancoMehinakuColumnRadius,
     segmentsPerLayer,
     textureMode,
     aiWaveParams,
@@ -1565,6 +1566,17 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
   // Largura dos paineis planos (um pouco menor que a largura do tampo)
   const panelWidth = bancoMehinakuTopWidth * 0.7;
   const cornerRadius = bancoMehinakuTopDepth * 0.4; // Raio das pontas curvas
+  
+  // Raio das colunas (parafusos de rosca contínua) - padrão mais grosso
+  const columnRadius = bancoMehinakuColumnRadius || 0.012;
+  
+  // Posições das colunas de suporte (4 colunas nas extremidades dos painéis)
+  const columnPositions = useMemo(() => [
+    { x: -panelWidth / 2 + columnRadius, z: bancoMehinakuTopDepth / 2 - 0.02 },
+    { x: panelWidth / 2 - columnRadius, z: bancoMehinakuTopDepth / 2 - 0.02 },
+    { x: -panelWidth / 2 + columnRadius, z: -bancoMehinakuTopDepth / 2 + 0.02 },
+    { x: panelWidth / 2 - columnRadius, z: -bancoMehinakuTopDepth / 2 + 0.02 },
+  ], [panelWidth, columnRadius, bancoMehinakuTopDepth]);
   
   // Gera dois paineis planos nas bordas da tampa
   const { frontSegments, frontWires, backSegments, backWires } = useMemo(() => {
@@ -1662,6 +1674,261 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       {backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
+      
+      {/* Colunas de suporte - parafusos de rosca contínua */}
+      {columnPositions.map((col, i) => (
+        <group key={`column-${i}`} position={[col.x, 0, col.z]}>
+          {/* Corpo principal da coluna (cilindro grosso) */}
+          <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
+            <meshStandardMaterial color="#4A4A4A" metalness={0.8} roughness={0.3} />
+          </mesh>
+          
+          {/* Rosca espiral (helicoidal) ao redor da coluna */}
+          {Array.from({ length: Math.floor(bancoMehinakuLegHeight / 0.012) }).map((_, j) => {
+            const threadY = j * 0.012;
+            const threadAngle = j * Math.PI * 0.5; // Meia volta por camada
+            return (
+              <mesh
+                key={`thread-${i}-${j}`}
+                position={[
+                  Math.cos(threadAngle) * (columnRadius + 0.002),
+                  threadY + 0.006,
+                  Math.sin(threadAngle) * (columnRadius + 0.002)
+                ]}
+                rotation={[0, threadAngle, Math.PI / 2]}
+              >
+                <torusGeometry args={[columnRadius + 0.003, 0.002, 4, 8, Math.PI]} />
+                <meshStandardMaterial color="#5A5A5A" metalness={0.7} roughness={0.4} />
+              </mesh>
+            );
+          })}
+          
+          {/* Porca superior */}
+          <mesh position={[0, bancoMehinakuLegHeight + 0.008, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.4, columnRadius * 1.4, 0.015, 6]} />
+            <meshStandardMaterial color="#3A3A3A" metalness={0.9} roughness={0.2} />
+          </mesh>
+          
+          {/* Porca inferior */}
+          <mesh position={[0, -0.008, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.4, columnRadius * 1.4, 0.015, 6]} />
+            <meshStandardMaterial color="#3A3A3A" metalness={0.9} roughness={0.2} />
+          </mesh>
+          
+          {/* Arruela superior */}
+          <mesh position={[0, bancoMehinakuLegHeight - 0.002, 0]}>
+            <cylinderGeometry args={[columnRadius * 1.6, columnRadius * 1.6, 0.003, 16]} />
+            <meshStandardMaterial color="#5A5A5A" metalness={0.8} roughness={0.3} />
+          </mesh>
+          
+          {/* Arruela inferior */}
+          <mesh position={[0, 0.002, 0]}>
+            <cylinderGeometry args={[columnRadius * 1.6, columnRadius * 1.6, 0.003, 16]} />
+            <meshStandardMaterial color="#5A5A5A" metalness={0.8} roughness={0.3} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+// Banco Mehinaku Perfurado Segmentado - base em chapa perfurada com padrão FFT
+export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
+  const { params } = useFurniture();
+  
+  const {
+    bancoMehinakuPerfuradoTopWidth,
+    bancoMehinakuPerfuradoTopDepth,
+    bancoMehinakuPerfuradoTopHeight,
+    bancoMehinakuPerfuradoLegHeight,
+    bancoMehinakuPerfuradoColor,
+    bancoMehinakuPerfuradoHoleSize,
+    bancoMehinakuPerfuradoPlateThickness,
+    textureMode,
+    aiWaveParams,
+  } = params;
+
+  const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
+  const panelWidth = bancoMehinakuPerfuradoTopWidth * 0.7;
+  const cornerRadius = bancoMehinakuPerfuradoTopDepth * 0.4;
+
+  // Geometria do tampo com pontas curvas (madeira)
+  const topGeometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    const w = bancoMehinakuPerfuradoTopWidth / 2;
+    const d = bancoMehinakuPerfuradoTopDepth / 2;
+    const r = Math.min(cornerRadius, w, d);
+    
+    shape.moveTo(-w + r, -d);
+    shape.lineTo(w - r, -d);
+    shape.quadraticCurveTo(w, -d, w, -d + r);
+    shape.lineTo(w, d - r);
+    shape.quadraticCurveTo(w, d, w - r, d);
+    shape.lineTo(-w + r, d);
+    shape.quadraticCurveTo(-w, d, -w, d - r);
+    shape.lineTo(-w, -d + r);
+    shape.quadraticCurveTo(-w, -d, -w + r, -d);
+    
+    const extrudeSettings = {
+      steps: 1,
+      depth: bancoMehinakuPerfuradoTopHeight,
+      bevelEnabled: true,
+      bevelThickness: 0.005,
+      bevelSize: 0.005,
+      bevelSegments: 3
+    };
+    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  }, [bancoMehinakuPerfuradoTopWidth, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, cornerRadius]);
+
+  // Gera a geometria da chapa perfurada com padrão FFT
+  const { frontPlateGeometry, backPlateGeometry, framePositions } = useMemo(() => {
+    const holeSize = bancoMehinakuPerfuradoHoleSize;
+    const thickness = bancoMehinakuPerfuradoPlateThickness;
+    const plateHeight = bancoMehinakuPerfuradoLegHeight;
+    
+    const cols = Math.floor(panelWidth / (holeSize * 2));
+    const rows = Math.floor(plateHeight / (holeSize * 2));
+    
+    const plateShape = new THREE.Shape();
+    plateShape.moveTo(-panelWidth / 2, 0);
+    plateShape.lineTo(panelWidth / 2, 0);
+    plateShape.lineTo(panelWidth / 2, plateHeight);
+    plateShape.lineTo(-panelWidth / 2, plateHeight);
+    plateShape.lineTo(-panelWidth / 2, 0);
+    
+    const colSpacing = panelWidth / (cols + 1);
+    const rowSpacing = plateHeight / (rows + 1);
+    
+    for (let col = 0; col < cols; col++) {
+      const normalizedFreq = col / cols;
+      const fftMagnitude = getFFTIntensity(normalizedFreq);
+      const maxBarRows = Math.floor(rows * fftMagnitude);
+      
+      for (let row = 0; row < rows; row++) {
+        const x = -panelWidth / 2 + colSpacing * (col + 1);
+        const y = rowSpacing * (row + 1);
+        
+        const isInBar = row < maxBarRows;
+        const adjustedSize = isInBar ? holeSize * 0.5 : holeSize * 0.9;
+        const patternType = (col + row) % 2;
+        
+        if (patternType === 0) {
+          const holePath = new THREE.Path();
+          const s = adjustedSize / 2;
+          const r = s * 0.2;
+          
+          holePath.moveTo(x - s + r, y - s);
+          holePath.lineTo(x + s - r, y - s);
+          holePath.quadraticCurveTo(x + s, y - s, x + s, y - s + r);
+          holePath.lineTo(x + s, y + s - r);
+          holePath.quadraticCurveTo(x + s, y + s, x + s - r, y + s);
+          holePath.lineTo(x - s + r, y + s);
+          holePath.quadraticCurveTo(x - s, y + s, x - s, y + s - r);
+          holePath.lineTo(x - s, y - s + r);
+          holePath.quadraticCurveTo(x - s, y - s, x - s + r, y - s);
+          
+          plateShape.holes.push(holePath);
+        } else {
+          const holePath = new THREE.Path();
+          const s = adjustedSize / 2;
+          const armWidth = s * 0.4;
+          
+          holePath.moveTo(x - armWidth, y - s);
+          holePath.lineTo(x + armWidth, y - s);
+          holePath.lineTo(x + armWidth, y - armWidth);
+          holePath.lineTo(x + s, y - armWidth);
+          holePath.lineTo(x + s, y + armWidth);
+          holePath.lineTo(x + armWidth, y + armWidth);
+          holePath.lineTo(x + armWidth, y + s);
+          holePath.lineTo(x - armWidth, y + s);
+          holePath.lineTo(x - armWidth, y + armWidth);
+          holePath.lineTo(x - s, y + armWidth);
+          holePath.lineTo(x - s, y - armWidth);
+          holePath.lineTo(x - armWidth, y - armWidth);
+          holePath.lineTo(x - armWidth, y - s);
+          
+          plateShape.holes.push(holePath);
+        }
+      }
+    }
+    
+    const extrudeSettings = {
+      steps: 1,
+      depth: thickness,
+      bevelEnabled: false,
+    };
+    
+    const frontGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
+    const backGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
+    
+    const frames = [
+      { x: -panelWidth / 2 - 0.01, width: 0.02 },
+      { x: panelWidth / 2 + 0.01, width: 0.02 },
+    ];
+    
+    return { 
+      frontPlateGeometry: frontGeo, 
+      backPlateGeometry: backGeo,
+      framePositions: frames
+    };
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness]);
+
+  const woodColor = "#5D4037";
+  const metalColor = bancoMehinakuPerfuradoColor;
+
+  return (
+    <group position={position}>
+      {/* Tampo retangular com pontas curvas (madeira) */}
+      <group position={[0, topY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0, -bancoMehinakuPerfuradoTopHeight / 2]} geometry={topGeometry} receiveShadow>
+          <meshStandardMaterial color={woodColor} />
+        </mesh>
+      </group>
+
+      {/* Chapa perfurada frontal */}
+      <group 
+        position={[0, 0, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]} 
+        rotation={[0, 0, 0]}
+      >
+        <mesh geometry={frontPlateGeometry} castShadow>
+          <meshStandardMaterial 
+            color={metalColor} 
+            metalness={0.7} 
+            roughness={0.3}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        
+        {framePositions.map((frame, i) => (
+          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.002]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.008]} />
+            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Chapa perfurada traseira */}
+      <group 
+        position={[0, 0, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} 
+        rotation={[0, Math.PI, 0]}
+      >
+        <mesh geometry={backPlateGeometry} castShadow>
+          <meshStandardMaterial 
+            color={metalColor} 
+            metalness={0.7} 
+            roughness={0.3}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        
+        {framePositions.map((frame, i) => (
+          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.002]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.008]} />
+            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 }

@@ -6,8 +6,9 @@ import { Chair } from "./chair";
 import { Table } from "./table";
 import { RoundTable } from "./round-table";
 import { BancoMehinaku } from "./banco-mehinaku";
+import { BancoMehinakuPerfurado } from "./banco-mehinaku-perfurado";
 import { BancoWauja } from "./banco-wauja";
-import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoWauja } from "./segmented-furniture";
+import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoMehinakuPerfurado, SegmentedBancoWauja } from "./segmented-furniture";
 import { RecordingController } from "./recording-controller";
 import { ImageCaptureBridge } from "./image-capture-bridge";
 import { Suspense } from "react";
@@ -55,6 +56,7 @@ function SceneContent() {
             {params.activeTab === "chair" && <Chair position={[0, 0, 0]} />}
             {params.activeTab === "roundTable" && <RoundTable position={[0, 0, 0]} />}
             {params.activeTab === "bancoMehinaku" && <BancoMehinaku position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <BancoMehinakuPerfurado position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <BancoWauja position={[0, 0, 0]} />}
           </>
         ) : (
@@ -63,6 +65,7 @@ function SceneContent() {
             {params.activeTab === "chair" && <SegmentedChair position={[0, 0, 0]} />}
             {params.activeTab === "roundTable" && <SegmentedRoundTable position={[0, 0, 0]} />}
             {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <SegmentedBancoWauja position={[0, 0, 0]} />}
           </>
         )}

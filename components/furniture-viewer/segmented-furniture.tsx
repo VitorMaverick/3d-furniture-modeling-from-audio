@@ -1852,8 +1852,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     bancoMehinakuPerfuradoColor,
     bancoMehinakuPerfuradoHoleSize,
     bancoMehinakuPerfuradoPlateThickness,
-    textureMode,
-    aiWaveParams,
+    bancoMehinakuPerfuradoHolePattern,
   } = params;
 
   const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
@@ -1893,9 +1892,12 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     const holeSize = bancoMehinakuPerfuradoHoleSize;
     const thickness = bancoMehinakuPerfuradoPlateThickness;
     const plateHeight = bancoMehinakuPerfuradoLegHeight;
+    const useClover = bancoMehinakuPerfuradoHolePattern === "clover";
     
-    const cols = Math.floor(panelWidth / (holeSize * 2));
-    const rows = Math.floor(plateHeight / (holeSize * 2));
+    // Padrão mais denso
+    const spacing = holeSize * 1.8;
+    const cols = Math.floor(panelWidth / spacing);
+    const rows = Math.floor(plateHeight / spacing);
     
     const plateShape = new THREE.Shape();
     plateShape.moveTo(-panelWidth / 2, 0);
@@ -1917,46 +1919,66 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         const y = rowSpacing * (row + 1);
         
         const isInBar = row < maxBarRows;
-        const adjustedSize = isInBar ? holeSize * 0.5 : holeSize * 0.9;
-        const patternType = (col + row) % 2;
+        const sizeMultiplier = isInBar ? 0.6 : 1.0;
+        const adjustedSize = holeSize * sizeMultiplier;
         
-        if (patternType === 0) {
-          const holePath = new THREE.Path();
-          const s = adjustedSize / 2;
-          const r = s * 0.2;
+        // Cria furo com padrão selecionado
+        const holePath = new THREE.Path();
+        
+        if (useClover) {
+          // Padrão trevo/flor de 4 pétalas
+          const petalRadius = adjustedSize * 0.45;
+          const numPetals = 4;
+          const points: { px: number; py: number }[] = [];
+          const segments = 32;
           
-          holePath.moveTo(x - s + r, y - s);
-          holePath.lineTo(x + s - r, y - s);
-          holePath.quadraticCurveTo(x + s, y - s, x + s, y - s + r);
-          holePath.lineTo(x + s, y + s - r);
-          holePath.quadraticCurveTo(x + s, y + s, x + s - r, y + s);
-          holePath.lineTo(x - s + r, y + s);
-          holePath.quadraticCurveTo(x - s, y + s, x - s, y + s - r);
-          holePath.lineTo(x - s, y - s + r);
-          holePath.quadraticCurveTo(x - s, y - s, x - s + r, y - s);
+          for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const r = petalRadius * (0.5 + 0.5 * Math.abs(Math.cos(numPetals * angle / 2)));
+            points.push({
+              px: x + Math.cos(angle) * r,
+              py: y + Math.sin(angle) * r
+            });
+          }
           
-          plateShape.holes.push(holePath);
+          holePath.moveTo(points[0].px, points[0].py);
+          for (let i = 1; i < points.length; i++) {
+            holePath.lineTo(points[i].px, points[i].py);
+          }
         } else {
-          const holePath = new THREE.Path();
+          // Padrão cruz com cantos arredondados
           const s = adjustedSize / 2;
-          const armWidth = s * 0.4;
+          const armWidth = s * 0.35;
+          const cr = armWidth * 0.3;
           
-          holePath.moveTo(x - armWidth, y - s);
-          holePath.lineTo(x + armWidth, y - s);
-          holePath.lineTo(x + armWidth, y - armWidth);
-          holePath.lineTo(x + s, y - armWidth);
-          holePath.lineTo(x + s, y + armWidth);
-          holePath.lineTo(x + armWidth, y + armWidth);
-          holePath.lineTo(x + armWidth, y + s);
-          holePath.lineTo(x - armWidth, y + s);
-          holePath.lineTo(x - armWidth, y + armWidth);
-          holePath.lineTo(x - s, y + armWidth);
-          holePath.lineTo(x - s, y - armWidth);
-          holePath.lineTo(x - armWidth, y - armWidth);
-          holePath.lineTo(x - armWidth, y - s);
-          
-          plateShape.holes.push(holePath);
+          holePath.moveTo(x - armWidth + cr, y - s);
+          holePath.lineTo(x + armWidth - cr, y - s);
+          holePath.quadraticCurveTo(x + armWidth, y - s, x + armWidth, y - s + cr);
+          holePath.lineTo(x + armWidth, y - armWidth + cr);
+          holePath.quadraticCurveTo(x + armWidth, y - armWidth, x + armWidth + cr, y - armWidth);
+          holePath.lineTo(x + s - cr, y - armWidth);
+          holePath.quadraticCurveTo(x + s, y - armWidth, x + s, y - armWidth + cr);
+          holePath.lineTo(x + s, y + armWidth - cr);
+          holePath.quadraticCurveTo(x + s, y + armWidth, x + s - cr, y + armWidth);
+          holePath.lineTo(x + armWidth + cr, y + armWidth);
+          holePath.quadraticCurveTo(x + armWidth, y + armWidth, x + armWidth, y + armWidth + cr);
+          holePath.lineTo(x + armWidth, y + s - cr);
+          holePath.quadraticCurveTo(x + armWidth, y + s, x + armWidth - cr, y + s);
+          holePath.lineTo(x - armWidth + cr, y + s);
+          holePath.quadraticCurveTo(x - armWidth, y + s, x - armWidth, y + s - cr);
+          holePath.lineTo(x - armWidth, y + armWidth + cr);
+          holePath.quadraticCurveTo(x - armWidth, y + armWidth, x - armWidth - cr, y + armWidth);
+          holePath.lineTo(x - s + cr, y + armWidth);
+          holePath.quadraticCurveTo(x - s, y + armWidth, x - s, y + armWidth - cr);
+          holePath.lineTo(x - s, y - armWidth + cr);
+          holePath.quadraticCurveTo(x - s, y - armWidth, x - s + cr, y - armWidth);
+          holePath.lineTo(x - armWidth - cr, y - armWidth);
+          holePath.quadraticCurveTo(x - armWidth, y - armWidth, x - armWidth, y - armWidth - cr);
+          holePath.lineTo(x - armWidth, y - s + cr);
+          holePath.quadraticCurveTo(x - armWidth, y - s, x - armWidth + cr, y - s);
         }
+        
+        plateShape.holes.push(holePath);
       }
     }
     
@@ -1970,8 +1992,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     const backGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
     
     const frames = [
-      { x: -panelWidth / 2 - 0.01, width: 0.02 },
-      { x: panelWidth / 2 + 0.01, width: 0.02 },
+      { x: -panelWidth / 2 - 0.012, width: 0.024 },
+      { x: panelWidth / 2 + 0.012, width: 0.024 },
     ];
     
     return { 
@@ -1979,7 +2001,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       backPlateGeometry: backGeo,
       framePositions: frames
     };
-  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness]);
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern]);
 
   const woodColor = "#5D4037";
   const metalColor = bancoMehinakuPerfuradoColor;
@@ -2001,18 +2023,30 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         <mesh geometry={frontPlateGeometry} castShadow>
           <meshStandardMaterial 
             color={metalColor} 
-            metalness={0.7} 
-            roughness={0.3}
+            metalness={0.75} 
+            roughness={0.25}
             side={THREE.DoubleSide}
           />
         </mesh>
         
         {framePositions.map((frame, i) => (
-          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.002]}>
-            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.008]} />
-            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
+            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
           </mesh>
         ))}
+        
+        {/* Barra horizontal superior */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+        
+        {/* Barra horizontal inferior */}
+        <mesh position={[0, 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
       </group>
 
       {/* Chapa perfurada traseira */}
@@ -2023,18 +2057,30 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         <mesh geometry={backPlateGeometry} castShadow>
           <meshStandardMaterial 
             color={metalColor} 
-            metalness={0.7} 
-            roughness={0.3}
+            metalness={0.75} 
+            roughness={0.25}
             side={THREE.DoubleSide}
           />
         </mesh>
         
         {framePositions.map((frame, i) => (
-          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.002]}>
-            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.008]} />
-            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
+            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
           </mesh>
         ))}
+        
+        {/* Barra horizontal superior */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+        
+        {/* Barra horizontal inferior */}
+        <mesh position={[0, 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
       </group>
     </group>
   );

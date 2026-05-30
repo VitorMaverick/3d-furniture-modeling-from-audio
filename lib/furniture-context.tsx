@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useRef, useCallback, ReactNode, RefObject } from "react";
 import * as THREE from "three";
 
-export type FurnitureTab = "chair" | "table" | "roundTable" | "bancoMehinaku" | "bancoWauja";
+export type FurnitureTab = "chair" | "table" | "roundTable" | "bancoMehinaku" | "bancoMehinakuPerfurado" | "bancoWauja";
 export type TextureMode = "solid" | "waveform" | "fft" | "spectrogram" | "combined" | "ai-image";
 
 export interface AIWaveParams {
@@ -64,6 +64,17 @@ export interface FurnitureParams {
   bancoMehinakuLegHeight: number;
   bancoMehinakuLegCurve: number;
   bancoMehinakuColor: string;
+  bancoMehinakuColumnRadius: number; // Raio das colunas (parafusos de rosca)
+  
+  // Parâmetros do Banco Mehinaku Perfurado
+  bancoMehinakuPerfuradoTopWidth: number;
+  bancoMehinakuPerfuradoTopDepth: number;
+  bancoMehinakuPerfuradoTopHeight: number;
+  bancoMehinakuPerfuradoLegHeight: number;
+  bancoMehinakuPerfuradoColor: string;
+  bancoMehinakuPerfuradoHoleSize: number; // Tamanho dos furos na chapa
+  bancoMehinakuPerfuradoPlateThickness: number; // Espessura da chapa
+  bancoMehinakuPerfuradoHolePattern: "clover" | "cross"; // Padrão dos furos
   
   // Parâmetros do Banco Waujá
   bancoWaujaWidth: number;
@@ -137,6 +148,17 @@ const defaultParams: FurnitureParams = {
   bancoMehinakuLegHeight: 0.2,
   bancoMehinakuLegCurve: 0.3,
   bancoMehinakuColor: "#5D4037",
+  bancoMehinakuColumnRadius: 0.018, // Raio das colunas (parafusos de rosca) - aumentado para maior robustez
+  
+  // Banco Mehinaku Perfurado
+  bancoMehinakuPerfuradoTopWidth: 0.55,
+  bancoMehinakuPerfuradoTopDepth: 0.32,
+  bancoMehinakuPerfuradoTopHeight: 0.04,
+  bancoMehinakuPerfuradoLegHeight: 0.2,
+  bancoMehinakuPerfuradoColor: "#424242", // Cor metálica
+  bancoMehinakuPerfuradoHoleSize: 0.012, // Tamanho dos furos - ajustado para padrão mais denso
+  bancoMehinakuPerfuradoPlateThickness: 0.004, // Espessura da chapa - aumentado para mais resistência
+  bancoMehinakuPerfuradoHolePattern: "clover" as const, // Padrão dos furos: "clover" (trevo) ou "cross" (cruz)
   
   // Banco Waujá
   bancoWaujaWidth: 0.5,

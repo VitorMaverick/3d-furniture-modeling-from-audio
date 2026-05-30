@@ -1543,7 +1543,7 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
   );
 }
 
-// Banco Mehinaku Segmentado - com dois paineis planos nas bordas
+// Banco Mehinaku Segmentado - com dois paineis planos nas bordas e colunas de parafuso de rosca
 export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
   const { params } = useFurniture();
   
@@ -1553,6 +1553,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
     bancoMehinakuTopHeight,
     bancoMehinakuLegHeight,
     bancoMehinakuColor,
+    bancoMehinakuColumnRadius,
     segmentsPerLayer,
     textureMode,
     aiWaveParams,
@@ -1565,6 +1566,28 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
   // Largura dos paineis planos (um pouco menor que a largura do tampo)
   const panelWidth = bancoMehinakuTopWidth * 0.7;
   const cornerRadius = bancoMehinakuTopDepth * 0.4; // Raio das pontas curvas
+  
+  // Raio dos parafusos de rosca contínua
+  const columnRadius = (bancoMehinakuColumnRadius || 0.018) * 0.5;
+  
+  // Número de segmentos por linha (deve corresponder ao usado na geração dos fios)
+  const actualSegments = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+  const segWidth = panelWidth / actualSegments;
+  
+  // Posições dos parafusos de rosca contínua que sustentam cada segmento (incluindo extremidades)
+  const segmentColumnPositions = useMemo(() => {
+    const positions: { x: number; zFront: number; zBack: number }[] = [];
+    // Inclui todas as posições, das extremidades até o centro
+    for (let seg = 0; seg <= actualSegments; seg++) {
+      const xOffset = -panelWidth / 2 + seg * segWidth;
+      positions.push({
+        x: xOffset,
+        zFront: bancoMehinakuTopDepth / 2 - 0.02,
+        zBack: -bancoMehinakuTopDepth / 2 + 0.02
+      });
+    }
+    return positions;
+  }, [actualSegments, panelWidth, segWidth, bancoMehinakuTopDepth]);
   
   // Gera dois paineis planos nas bordas da tampa
   const { frontSegments, frontWires, backSegments, backWires } = useMemo(() => {
@@ -1662,6 +1685,361 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       {backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
+      
+      {/* Parafusos de rosca contínua que sustentam cada segmento - FRONTAL */}
+      {segmentColumnPositions.map((col, i) => (
+        <group key={`seg-column-front-${i}`} position={[col.x, 0, col.zFront]}>
+          {/* Corpo do parafuso */}
+          <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
+            <meshStandardMaterial color="#5A5A5A" metalness={0.85} roughness={0.25} />
+          </mesh>
+          
+          {/* Porca superior */}
+          <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
+            <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
+          </mesh>
+          
+          {/* Porca inferior */}
+          <mesh position={[0, -columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
+            <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
+          </mesh>
+        </group>
+      ))}
+      
+      {/* Parafusos de rosca contínua que sustentam cada segmento - TRASEIRO */}
+      {segmentColumnPositions.map((col, i) => (
+        <group key={`seg-column-back-${i}`} position={[col.x, 0, col.zBack]}>
+          {/* Corpo do parafuso */}
+          <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
+            <meshStandardMaterial color="#5A5A5A" metalness={0.85} roughness={0.25} />
+          </mesh>
+          
+          {/* Porca superior */}
+          <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
+            <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
+          </mesh>
+          
+          {/* Porca inferior */}
+          <mesh position={[0, -columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
+            <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+// Banco Mehinaku Perfurado Segmentado - base em chapa perfurada com padrão FFT
+export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
+  const { params } = useFurniture();
+  
+  const {
+    bancoMehinakuPerfuradoTopWidth,
+    bancoMehinakuPerfuradoTopDepth,
+    bancoMehinakuPerfuradoTopHeight,
+    bancoMehinakuPerfuradoLegHeight,
+    bancoMehinakuPerfuradoColor,
+    bancoMehinakuPerfuradoHoleSize,
+    bancoMehinakuPerfuradoPlateThickness,
+    bancoMehinakuPerfuradoHolePattern,
+    textureMode,
+    waveIntensity,
+    fftIntensity,
+    spectrogramIntensity,
+    aiWaveParams,
+  } = params;
+
+  const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
+  const panelWidth = bancoMehinakuPerfuradoTopWidth * 0.7;
+  const cornerRadius = bancoMehinakuPerfuradoTopDepth * 0.4;
+
+  // Geometria do tampo com pontas curvas (madeira)
+  const topGeometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    const w = bancoMehinakuPerfuradoTopWidth / 2;
+    const d = bancoMehinakuPerfuradoTopDepth / 2;
+    const r = Math.min(cornerRadius, w, d);
+    
+    shape.moveTo(-w + r, -d);
+    shape.lineTo(w - r, -d);
+    shape.quadraticCurveTo(w, -d, w, -d + r);
+    shape.lineTo(w, d - r);
+    shape.quadraticCurveTo(w, d, w - r, d);
+    shape.lineTo(-w + r, d);
+    shape.quadraticCurveTo(-w, d, -w, d - r);
+    shape.lineTo(-w, -d + r);
+    shape.quadraticCurveTo(-w, -d, -w + r, -d);
+    
+    const extrudeSettings = {
+      steps: 1,
+      depth: bancoMehinakuPerfuradoTopHeight,
+      bevelEnabled: true,
+      bevelThickness: 0.005,
+      bevelSize: 0.005,
+      bevelSegments: 3
+    };
+    return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  }, [bancoMehinakuPerfuradoTopWidth, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, cornerRadius]);
+
+  // Gera a geometria da chapa perfurada com padrão baseado no modo de textura
+  const { frontPlateGeometry, backPlateGeometry, framePositions } = useMemo(() => {
+    const holeSize = bancoMehinakuPerfuradoHoleSize;
+    const thickness = bancoMehinakuPerfuradoPlateThickness;
+    const plateHeight = bancoMehinakuPerfuradoLegHeight;
+    const useClover = bancoMehinakuPerfuradoHolePattern === "clover";
+    
+    // Padrão mais denso
+    const spacing = holeSize * 1.8;
+    const cols = Math.floor(panelWidth / spacing);
+    const rows = Math.floor(plateHeight / spacing);
+    
+    const plateShape = new THREE.Shape();
+    plateShape.moveTo(-panelWidth / 2, 0);
+    plateShape.lineTo(panelWidth / 2, 0);
+    plateShape.lineTo(panelWidth / 2, plateHeight);
+    plateShape.lineTo(-panelWidth / 2, plateHeight);
+    plateShape.lineTo(-panelWidth / 2, 0);
+    
+    const colSpacing = panelWidth / (cols + 1);
+    const rowSpacing = plateHeight / (rows + 1);
+    
+    // Função para obter intensidade baseada no modo de textura
+    const getIntensityForMode = (normalizedX: number, normalizedY: number, col: number, row: number): number => {
+      // Caso contrário, usa o modo de textura selecionado
+      switch (textureMode) {
+        case "solid":
+          // Sólido: sem variação, todos os furos iguais
+          return 0.5;
+          
+        case "waveform":
+          // Waveform: intensidade varia horizontalmente (tempo) com ondulação vertical
+          const waveBase = getWaveformIntensity(normalizedX, 0);
+          const verticalWave = Math.sin(normalizedY * Math.PI * 4) * 0.2;
+          return Math.max(0, Math.min(1, (waveBase + verticalWave) * waveIntensity));
+          
+        case "fft":
+          // FFT: barras verticais com altura baseada na frequência
+          const fftMag = getFFTIntensity(normalizedX);
+          // A intensidade diminui conforme sobe (row maior = mais alto)
+          const isInFFTBar = normalizedY < fftMag;
+          return isInFFTBar ? fftMag * fftIntensity : 0.1;
+          
+        case "spectrogram":
+          // STFT/Spectrogram: grade 2D de intensidades
+          const stftVal = getSTFTIntensity(normalizedY, col, cols);
+          return stftVal * spectrogramIntensity;
+          
+        case "combined":
+          // Combinado: mistura de waveform, FFT e spectrogram
+          const waveInt = getWaveformIntensity(normalizedX, 0);
+          const fftInt = getFFTIntensity(normalizedX);
+          const stftInt = getSTFTIntensity(normalizedY, col, cols);
+          
+          const waveComponent = Math.sin(normalizedX * Math.PI * 6) * waveInt;
+          const fftComponent = fftInt * (1 - normalizedY * 0.5);
+          const stftComponent = stftInt * 0.5;
+          
+          const combinedIntensity = (waveComponent * 0.3 + fftComponent * 0.4 + stftComponent * 0.3);
+          return Math.max(0, Math.min(1, combinedIntensity));
+          
+        case "ai-image":
+          // Se temos parâmetros de IA, usa eles
+          if (aiWaveParams) {
+            const aiResult = getAIWaveIntensity(normalizedY, normalizedX, aiWaveParams, plateHeight);
+            return aiResult.intensity;
+          }
+          // Fallback para waveform se não tiver parâmetros de IA
+          const fallbackWave = getWaveformIntensity(normalizedX, 0);
+          return Math.max(0, Math.min(1, fallbackWave * waveIntensity));
+          
+        default:
+          return 0.5;
+      }
+    };
+    
+    for (let col = 0; col < cols; col++) {
+      for (let row = 0; row < rows; row++) {
+        const x = -panelWidth / 2 + colSpacing * (col + 1);
+        const y = rowSpacing * (row + 1);
+        
+        const normalizedX = col / cols;
+        const normalizedY = row / rows;
+        
+        // Obtém intensidade baseada no modo de textura
+        const intensity = getIntensityForMode(normalizedX, normalizedY, col, row);
+        
+        // Tamanho do furo inversamente proporcional à intensidade
+        // Alta intensidade (som forte) = furos menores (mais material)
+        // Baixa intensidade (silêncio) = furos maiores (menos material)
+        const sizeMultiplier = 0.4 + (1 - intensity) * 0.6; // Range: 0.4 a 1.0
+        const adjustedSize = holeSize * sizeMultiplier;
+        
+        // Cria furo com padrão selecionado
+        const holePath = new THREE.Path();
+        
+        if (useClover) {
+          // Padrão trevo/flor de 4 pétalas
+          const petalRadius = adjustedSize * 0.45;
+          const numPetals = 4;
+          const points: { px: number; py: number }[] = [];
+          const segments = 32;
+          
+          for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            const r = petalRadius * (0.5 + 0.5 * Math.abs(Math.cos(numPetals * angle / 2)));
+            points.push({
+              px: x + Math.cos(angle) * r,
+              py: y + Math.sin(angle) * r
+            });
+          }
+          
+          holePath.moveTo(points[0].px, points[0].py);
+          for (let i = 1; i < points.length; i++) {
+            holePath.lineTo(points[i].px, points[i].py);
+          }
+        } else {
+          // Padrão cruz com cantos arredondados
+          const s = adjustedSize / 2;
+          const armWidth = s * 0.35;
+          const cr = armWidth * 0.3;
+          
+          holePath.moveTo(x - armWidth + cr, y - s);
+          holePath.lineTo(x + armWidth - cr, y - s);
+          holePath.quadraticCurveTo(x + armWidth, y - s, x + armWidth, y - s + cr);
+          holePath.lineTo(x + armWidth, y - armWidth + cr);
+          holePath.quadraticCurveTo(x + armWidth, y - armWidth, x + armWidth + cr, y - armWidth);
+          holePath.lineTo(x + s - cr, y - armWidth);
+          holePath.quadraticCurveTo(x + s, y - armWidth, x + s, y - armWidth + cr);
+          holePath.lineTo(x + s, y + armWidth - cr);
+          holePath.quadraticCurveTo(x + s, y + armWidth, x + s - cr, y + armWidth);
+          holePath.lineTo(x + armWidth + cr, y + armWidth);
+          holePath.quadraticCurveTo(x + armWidth, y + armWidth, x + armWidth, y + armWidth + cr);
+          holePath.lineTo(x + armWidth, y + s - cr);
+          holePath.quadraticCurveTo(x + armWidth, y + s, x + armWidth - cr, y + s);
+          holePath.lineTo(x - armWidth + cr, y + s);
+          holePath.quadraticCurveTo(x - armWidth, y + s, x - armWidth, y + s - cr);
+          holePath.lineTo(x - armWidth, y + armWidth + cr);
+          holePath.quadraticCurveTo(x - armWidth, y + armWidth, x - armWidth - cr, y + armWidth);
+          holePath.lineTo(x - s + cr, y + armWidth);
+          holePath.quadraticCurveTo(x - s, y + armWidth, x - s, y + armWidth - cr);
+          holePath.lineTo(x - s, y - armWidth + cr);
+          holePath.quadraticCurveTo(x - s, y - armWidth, x - s + cr, y - armWidth);
+          holePath.lineTo(x - armWidth - cr, y - armWidth);
+          holePath.quadraticCurveTo(x - armWidth, y - armWidth, x - armWidth, y - armWidth - cr);
+          holePath.lineTo(x - armWidth, y - s + cr);
+          holePath.quadraticCurveTo(x - armWidth, y - s, x - armWidth + cr, y - s);
+        }
+        
+        plateShape.holes.push(holePath);
+      }
+    }
+    
+    const extrudeSettings = {
+      steps: 1,
+      depth: thickness,
+      bevelEnabled: false,
+    };
+    
+    const frontGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
+    const backGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
+    
+    const frames = [
+      { x: -panelWidth / 2 - 0.012, width: 0.024 },
+      { x: panelWidth / 2 + 0.012, width: 0.024 },
+    ];
+    
+    return { 
+      frontPlateGeometry: frontGeo, 
+      backPlateGeometry: backGeo,
+      framePositions: frames
+    };
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern, textureMode, waveIntensity, fftIntensity, spectrogramIntensity, aiWaveParams]);
+
+  const woodColor = "#5D4037";
+  const metalColor = bancoMehinakuPerfuradoColor;
+
+  return (
+    <group position={position}>
+      {/* Tampo retangular com pontas curvas (madeira) */}
+      <group position={[0, topY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0, -bancoMehinakuPerfuradoTopHeight / 2]} geometry={topGeometry} receiveShadow>
+          <meshStandardMaterial color={woodColor} />
+        </mesh>
+      </group>
+
+      {/* Chapa perfurada frontal */}
+      <group 
+        position={[0, 0, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]} 
+        rotation={[0, 0, 0]}
+      >
+        <mesh geometry={frontPlateGeometry} castShadow>
+          <meshStandardMaterial 
+            color={metalColor} 
+            metalness={0.75} 
+            roughness={0.25}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        
+        {framePositions.map((frame, i) => (
+          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
+            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+          </mesh>
+        ))}
+        
+        {/* Barra horizontal superior */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+        
+        {/* Barra horizontal inferior */}
+        <mesh position={[0, 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+      </group>
+
+      {/* Chapa perfurada traseira */}
+      <group 
+        position={[0, 0, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} 
+        rotation={[0, Math.PI, 0]}
+      >
+        <mesh geometry={backPlateGeometry} castShadow>
+          <meshStandardMaterial 
+            color={metalColor} 
+            metalness={0.75} 
+            roughness={0.25}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        
+        {framePositions.map((frame, i) => (
+          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
+            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+          </mesh>
+        ))}
+        
+        {/* Barra horizontal superior */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+        
+        {/* Barra horizontal inferior */}
+        <mesh position={[0, 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+      </group>
     </group>
   );
 }

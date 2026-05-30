@@ -1567,28 +1567,18 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
   const panelWidth = bancoMehinakuTopWidth * 0.7;
   const cornerRadius = bancoMehinakuTopDepth * 0.4; // Raio das pontas curvas
   
-  // Raio das colunas (parafusos de rosca contínua) - padrão mais grosso para extremidades
-  const columnRadius = bancoMehinakuColumnRadius || 0.018;
-  // Raio dos parafusos finos que sustentam cada segmento
-  const thinColumnRadius = columnRadius * 0.45;
+  // Raio dos parafusos de rosca contínua
+  const columnRadius = (bancoMehinakuColumnRadius || 0.018) * 0.5;
   
   // Número de segmentos por linha (deve corresponder ao usado na geração dos fios)
   const actualSegments = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
   const segWidth = panelWidth / actualSegments;
   
-  // Posições das colunas de suporte nas extremidades (4 colunas grossas)
-  const cornerColumnPositions = useMemo(() => [
-    { x: -panelWidth / 2 + columnRadius, z: bancoMehinakuTopDepth / 2 - 0.02 },
-    { x: panelWidth / 2 - columnRadius, z: bancoMehinakuTopDepth / 2 - 0.02 },
-    { x: -panelWidth / 2 + columnRadius, z: -bancoMehinakuTopDepth / 2 + 0.02 },
-    { x: panelWidth / 2 - columnRadius, z: -bancoMehinakuTopDepth / 2 + 0.02 },
-  ], [panelWidth, columnRadius, bancoMehinakuTopDepth]);
-  
-  // Posições dos parafusos finos que sustentam cada segmento (um por coluna de segmento)
+  // Posições dos parafusos de rosca contínua que sustentam cada segmento (incluindo extremidades)
   const segmentColumnPositions = useMemo(() => {
     const positions: { x: number; zFront: number; zBack: number }[] = [];
-    // Pula as extremidades (já têm parafusos grossos)
-    for (let seg = 1; seg < actualSegments; seg++) {
+    // Inclui todas as posições, das extremidades até o centro
+    for (let seg = 0; seg <= actualSegments; seg++) {
       const xOffset = -panelWidth / 2 + seg * segWidth;
       positions.push({
         x: xOffset,
@@ -1696,67 +1686,12 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
-      {/* Colunas de suporte nas extremidades - parafusos de rosca contínua GROSSOS */}
-      {cornerColumnPositions.map((col, i) => (
-        <group key={`corner-column-${i}`} position={[col.x, 0, col.z]}>
-          {/* Corpo principal da coluna (cilindro grosso) */}
-          <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
-            <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 24]} />
-            <meshStandardMaterial color="#4A4A4A" metalness={0.85} roughness={0.25} />
-          </mesh>
-          
-          {/* Rosca espiral (helicoidal) ao redor da coluna - mais detalhada */}
-          {Array.from({ length: Math.floor(bancoMehinakuLegHeight / 0.008) }).map((_, j) => {
-            const threadY = j * 0.008;
-            const threadAngle = j * Math.PI * 0.4; // Gira menos por camada para rosca mais fina
-            return (
-              <mesh
-                key={`thread-${i}-${j}`}
-                position={[
-                  Math.cos(threadAngle) * columnRadius,
-                  threadY + 0.004,
-                  Math.sin(threadAngle) * columnRadius
-                ]}
-                rotation={[0, threadAngle, Math.PI / 2]}
-              >
-                <torusGeometry args={[columnRadius * 1.15, columnRadius * 0.15, 6, 12, Math.PI * 0.8]} />
-                <meshStandardMaterial color="#5A5A5A" metalness={0.75} roughness={0.35} />
-              </mesh>
-            );
-          })}
-          
-          {/* Porca superior - sextavada */}
-          <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.8, 0]} castShadow>
-            <cylinderGeometry args={[columnRadius * 1.6, columnRadius * 1.6, columnRadius * 1.2, 6]} />
-            <meshStandardMaterial color="#3A3A3A" metalness={0.9} roughness={0.2} />
-          </mesh>
-          
-          {/* Porca inferior - sextavada */}
-          <mesh position={[0, -columnRadius * 0.8, 0]} castShadow>
-            <cylinderGeometry args={[columnRadius * 1.6, columnRadius * 1.6, columnRadius * 1.2, 6]} />
-            <meshStandardMaterial color="#3A3A3A" metalness={0.9} roughness={0.2} />
-          </mesh>
-          
-          {/* Arruela superior */}
-          <mesh position={[0, bancoMehinakuLegHeight, 0]}>
-            <cylinderGeometry args={[columnRadius * 1.8, columnRadius * 1.8, columnRadius * 0.2, 24]} />
-            <meshStandardMaterial color="#5A5A5A" metalness={0.8} roughness={0.3} />
-          </mesh>
-          
-          {/* Arruela inferior */}
-          <mesh position={[0, 0, 0]}>
-            <cylinderGeometry args={[columnRadius * 1.8, columnRadius * 1.8, columnRadius * 0.2, 24]} />
-            <meshStandardMaterial color="#5A5A5A" metalness={0.8} roughness={0.3} />
-          </mesh>
-        </group>
-      ))}
-      
-      {/* Parafusos finos que sustentam cada segmento - FRONTAL */}
+      {/* Parafusos de rosca contínua que sustentam cada segmento - FRONTAL */}
       {segmentColumnPositions.map((col, i) => (
         <group key={`seg-column-front-${i}`} position={[col.x, 0, col.zFront]}>
           {/* Corpo do parafuso fino */}
           <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
-            <cylinderGeometry args={[thinColumnRadius, thinColumnRadius, bancoMehinakuLegHeight, 16]} />
+            <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
             <meshStandardMaterial color="#5A5A5A" metalness={0.85} roughness={0.25} />
           </mesh>
           
@@ -1768,38 +1703,38 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
               <mesh
                 key={`thin-thread-front-${i}-${j}`}
                 position={[
-                  Math.cos(threadAngle) * thinColumnRadius,
+                  Math.cos(threadAngle) * columnRadius,
                   threadY + 0.003,
-                  Math.sin(threadAngle) * thinColumnRadius
+                  Math.sin(threadAngle) * columnRadius
                 ]}
                 rotation={[0, threadAngle, Math.PI / 2]}
               >
-                <torusGeometry args={[thinColumnRadius * 1.2, thinColumnRadius * 0.18, 4, 8, Math.PI * 0.7]} />
+                <torusGeometry args={[columnRadius * 1.2, columnRadius * 0.18, 4, 8, Math.PI * 0.7]} />
                 <meshStandardMaterial color="#6A6A6A" metalness={0.75} roughness={0.35} />
               </mesh>
             );
           })}
           
           {/* Porca pequena superior */}
-          <mesh position={[0, bancoMehinakuLegHeight + thinColumnRadius * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[thinColumnRadius * 1.5, thinColumnRadius * 1.5, thinColumnRadius * 0.8, 6]} />
+          <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
           </mesh>
           
           {/* Porca pequena inferior */}
-          <mesh position={[0, -thinColumnRadius * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[thinColumnRadius * 1.5, thinColumnRadius * 1.5, thinColumnRadius * 0.8, 6]} />
+          <mesh position={[0, -columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
           </mesh>
         </group>
       ))}
       
-      {/* Parafusos finos que sustentam cada segmento - TRASEIRO */}
+      {/* Parafusos de rosca contínua que sustentam cada segmento - TRASEIRO */}
       {segmentColumnPositions.map((col, i) => (
         <group key={`seg-column-back-${i}`} position={[col.x, 0, col.zBack]}>
           {/* Corpo do parafuso fino */}
           <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
-            <cylinderGeometry args={[thinColumnRadius, thinColumnRadius, bancoMehinakuLegHeight, 16]} />
+            <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
             <meshStandardMaterial color="#5A5A5A" metalness={0.85} roughness={0.25} />
           </mesh>
           
@@ -1811,27 +1746,27 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
               <mesh
                 key={`thin-thread-back-${i}-${j}`}
                 position={[
-                  Math.cos(threadAngle) * thinColumnRadius,
+                  Math.cos(threadAngle) * columnRadius,
                   threadY + 0.003,
-                  Math.sin(threadAngle) * thinColumnRadius
+                  Math.sin(threadAngle) * columnRadius
                 ]}
                 rotation={[0, threadAngle, Math.PI / 2]}
               >
-                <torusGeometry args={[thinColumnRadius * 1.2, thinColumnRadius * 0.18, 4, 8, Math.PI * 0.7]} />
+                <torusGeometry args={[columnRadius * 1.2, columnRadius * 0.18, 4, 8, Math.PI * 0.7]} />
                 <meshStandardMaterial color="#6A6A6A" metalness={0.75} roughness={0.35} />
               </mesh>
             );
           })}
           
           {/* Porca pequena superior */}
-          <mesh position={[0, bancoMehinakuLegHeight + thinColumnRadius * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[thinColumnRadius * 1.5, thinColumnRadius * 1.5, thinColumnRadius * 0.8, 6]} />
+          <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
           </mesh>
           
           {/* Porca pequena inferior */}
-          <mesh position={[0, -thinColumnRadius * 0.6, 0]} castShadow>
-            <cylinderGeometry args={[thinColumnRadius * 1.5, thinColumnRadius * 1.5, thinColumnRadius * 0.8, 6]} />
+          <mesh position={[0, -columnRadius * 0.6, 0]} castShadow>
+            <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
           </mesh>
         </group>

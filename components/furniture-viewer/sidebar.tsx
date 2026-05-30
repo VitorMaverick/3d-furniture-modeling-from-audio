@@ -293,28 +293,26 @@ export function Sidebar() {
             onValueChange={(value) => setParams({ activeTab: value as FurnitureTab })}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="chair" className="flex items-center gap-1 text-xs">
+            <TabsList className="flex flex-wrap w-full h-auto gap-1">
+              <TabsTrigger value="chair" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
                 <Armchair className="h-4 w-4" />
                 Cadeira
               </TabsTrigger>
-              <TabsTrigger value="table" className="flex items-center gap-1 text-xs">
+              <TabsTrigger value="table" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
                 <Table2 className="h-4 w-4" />
                 Mesa
               </TabsTrigger>
-              <TabsTrigger value="roundTable" className="flex items-center gap-1 text-xs">
+              <TabsTrigger value="roundTable" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
                 <Circle className="h-4 w-4" />
                 Redonda
               </TabsTrigger>
-            </TabsList>
-            <TabsList className="grid w-full grid-cols-3 mt-1">
-              <TabsTrigger value="bancoMehinaku" className="text-xs py-1.5">
+              <TabsTrigger value="bancoMehinaku" className="flex-1 text-xs py-1.5 min-w-[70px]">
                 Mehinaku
               </TabsTrigger>
-              <TabsTrigger value="bancoMehinakuPerfurado" className="text-xs py-1.5">
+              <TabsTrigger value="bancoMehinakuPerfurado" className="flex-1 text-xs py-1.5 min-w-[70px]">
                 Perfurado
               </TabsTrigger>
-              <TabsTrigger value="bancoWauja" className="text-xs py-1.5">
+              <TabsTrigger value="bancoWauja" className="flex-1 text-xs py-1.5 min-w-[70px]">
                 Wauja
               </TabsTrigger>
             </TabsList>

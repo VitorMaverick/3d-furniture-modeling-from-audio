@@ -34,6 +34,73 @@ function getFFTIntensity(freqBin: number): number {
   return Math.max(0.1, decay * harmonics);
 }
 
+// Cria furo em forma de trevo/flor de 4 pétalas (baseado na imagem de referência)
+function createCloverHole(x: number, y: number, size: number): THREE.Path {
+  const holePath = new THREE.Path();
+  const petalRadius = size * 0.45;
+  const centerRadius = size * 0.15;
+  const numPetals = 4;
+  
+  // Desenha um trevo de 4 pétalas
+  const points: { x: number; y: number }[] = [];
+  const segments = 32;
+  
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2;
+    // Função que cria forma de trevo
+    const r = petalRadius * (0.5 + 0.5 * Math.abs(Math.cos(numPetals * angle / 2)));
+    points.push({
+      x: x + Math.cos(angle) * r,
+      y: y + Math.sin(angle) * r
+    });
+  }
+  
+  holePath.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    holePath.lineTo(points[i].x, points[i].y);
+  }
+  holePath.closePath();
+  
+  return holePath;
+}
+
+// Cria furo em forma de cruz com cantos arredondados
+function createCrossHole(x: number, y: number, size: number): THREE.Path {
+  const holePath = new THREE.Path();
+  const s = size / 2;
+  const armWidth = s * 0.35;
+  const r = armWidth * 0.3; // Raio do arredondamento
+  
+  // Cruz com cantos arredondados
+  holePath.moveTo(x - armWidth + r, y - s);
+  holePath.lineTo(x + armWidth - r, y - s);
+  holePath.quadraticCurveTo(x + armWidth, y - s, x + armWidth, y - s + r);
+  holePath.lineTo(x + armWidth, y - armWidth + r);
+  holePath.quadraticCurveTo(x + armWidth, y - armWidth, x + armWidth + r, y - armWidth);
+  holePath.lineTo(x + s - r, y - armWidth);
+  holePath.quadraticCurveTo(x + s, y - armWidth, x + s, y - armWidth + r);
+  holePath.lineTo(x + s, y + armWidth - r);
+  holePath.quadraticCurveTo(x + s, y + armWidth, x + s - r, y + armWidth);
+  holePath.lineTo(x + armWidth + r, y + armWidth);
+  holePath.quadraticCurveTo(x + armWidth, y + armWidth, x + armWidth, y + armWidth + r);
+  holePath.lineTo(x + armWidth, y + s - r);
+  holePath.quadraticCurveTo(x + armWidth, y + s, x + armWidth - r, y + s);
+  holePath.lineTo(x - armWidth + r, y + s);
+  holePath.quadraticCurveTo(x - armWidth, y + s, x - armWidth, y + s - r);
+  holePath.lineTo(x - armWidth, y + armWidth + r);
+  holePath.quadraticCurveTo(x - armWidth, y + armWidth, x - armWidth - r, y + armWidth);
+  holePath.lineTo(x - s + r, y + armWidth);
+  holePath.quadraticCurveTo(x - s, y + armWidth, x - s, y + armWidth - r);
+  holePath.lineTo(x - s, y - armWidth + r);
+  holePath.quadraticCurveTo(x - s, y - armWidth, x - s + r, y - armWidth);
+  holePath.lineTo(x - armWidth - r, y - armWidth);
+  holePath.quadraticCurveTo(x - armWidth, y - armWidth, x - armWidth, y - armWidth - r);
+  holePath.lineTo(x - armWidth, y - s + r);
+  holePath.quadraticCurveTo(x - armWidth, y - s, x - armWidth + r, y - s);
+  
+  return holePath;
+}
+
 // Banco Mehinaku com Chapa Perfurada
 // Base com padrão FFT em chapa perfurada ao invés de rede fina
 export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
@@ -48,6 +115,7 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     bancoMehinakuPerfuradoColor,
     bancoMehinakuPerfuradoHoleSize,
     bancoMehinakuPerfuradoPlateThickness,
+    bancoMehinakuPerfuradoHolePattern,
   } = params;
 
   const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
@@ -73,10 +141,12 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     const holeSize = bancoMehinakuPerfuradoHoleSize;
     const thickness = bancoMehinakuPerfuradoPlateThickness;
     const plateHeight = bancoMehinakuPerfuradoLegHeight;
+    const useClover = bancoMehinakuPerfuradoHolePattern === "clover";
     
-    // Número de colunas e linhas de furos
-    const cols = Math.floor(panelWidth / (holeSize * 2));
-    const rows = Math.floor(plateHeight / (holeSize * 2));
+    // Número de colunas e linhas de furos - padrão mais denso
+    const spacing = holeSize * 1.8;
+    const cols = Math.floor(panelWidth / spacing);
+    const rows = Math.floor(plateHeight / spacing);
     
     // Shape da chapa base
     const plateShape = new THREE.Shape();
@@ -101,57 +171,25 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
         const y = rowSpacing * (row + 1);
         
         // Determina se deve ter furo baseado no padrão FFT
-        // Furos aparecem onde NÃO há "barra" do FFT
         const isInBar = row < maxBarRows;
         
-        // Cria padrão visual interessante:
-        // - Dentro da barra FFT: furos menores (mais metal, mais resistência)
-        // - Fora da barra FFT: furos maiores (menos material, padrão decorativo)
-        const adjustedSize = isInBar ? holeSize * 0.5 : holeSize * 0.9;
+        // Ajusta tamanho do furo baseado na posição no padrão FFT
+        // Furos menores onde há mais "energia" (dentro das barras)
+        const sizeMultiplier = isInBar ? 0.6 : 1.0;
+        const adjustedSize = holeSize * sizeMultiplier;
         
-        // Alterna padrão de cruz/quadrado baseado na posição
-        const patternType = (col + row) % 2;
+        // Cria o furo com o padrão selecionado
+        let holePath: THREE.Path;
         
-        if (patternType === 0) {
-          // Furo quadrado com cantos arredondados
-          const holePath = new THREE.Path();
-          const s = adjustedSize / 2;
-          const r = s * 0.2; // Raio do canto
-          
-          holePath.moveTo(x - s + r, y - s);
-          holePath.lineTo(x + s - r, y - s);
-          holePath.quadraticCurveTo(x + s, y - s, x + s, y - s + r);
-          holePath.lineTo(x + s, y + s - r);
-          holePath.quadraticCurveTo(x + s, y + s, x + s - r, y + s);
-          holePath.lineTo(x - s + r, y + s);
-          holePath.quadraticCurveTo(x - s, y + s, x - s, y + s - r);
-          holePath.lineTo(x - s, y - s + r);
-          holePath.quadraticCurveTo(x - s, y - s, x - s + r, y - s);
-          
-          plateShape.holes.push(holePath);
+        if (useClover) {
+          // Padrão trevo/flor como na imagem de referência
+          holePath = createCloverHole(x, y, adjustedSize);
         } else {
-          // Furo em forma de cruz (padrão da imagem de referência)
-          const holePath = new THREE.Path();
-          const s = adjustedSize / 2;
-          const armWidth = s * 0.4;
-          
-          // Desenha cruz
-          holePath.moveTo(x - armWidth, y - s);
-          holePath.lineTo(x + armWidth, y - s);
-          holePath.lineTo(x + armWidth, y - armWidth);
-          holePath.lineTo(x + s, y - armWidth);
-          holePath.lineTo(x + s, y + armWidth);
-          holePath.lineTo(x + armWidth, y + armWidth);
-          holePath.lineTo(x + armWidth, y + s);
-          holePath.lineTo(x - armWidth, y + s);
-          holePath.lineTo(x - armWidth, y + armWidth);
-          holePath.lineTo(x - s, y + armWidth);
-          holePath.lineTo(x - s, y - armWidth);
-          holePath.lineTo(x - armWidth, y - armWidth);
-          holePath.lineTo(x - armWidth, y - s);
-          
-          plateShape.holes.push(holePath);
+          // Padrão cruz como alternativa
+          holePath = createCrossHole(x, y, adjustedSize);
         }
+        
+        plateShape.holes.push(holePath);
       }
     }
     
@@ -166,8 +204,8 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     
     // Posições das molduras de reforço laterais
     const frames = [
-      { x: -panelWidth / 2 - 0.01, width: 0.02 },
-      { x: panelWidth / 2 + 0.01, width: 0.02 },
+      { x: -panelWidth / 2 - 0.012, width: 0.024 },
+      { x: panelWidth / 2 + 0.012, width: 0.024 },
     ];
     
     return { 
@@ -175,7 +213,7 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
       backPlateGeometry: backGeo,
       framePositions: frames
     };
-  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness]);
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern]);
 
   // Cor do tampo (madeira)
   const woodColor = "#5D4037";
@@ -202,19 +240,31 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
         <mesh geometry={frontPlateGeometry} castShadow>
           <meshStandardMaterial 
             color={metalColor} 
-            metalness={0.7} 
-            roughness={0.3}
+            metalness={0.75} 
+            roughness={0.25}
             side={THREE.DoubleSide}
           />
         </mesh>
         
         {/* Molduras laterais de reforço */}
         {framePositions.map((frame, i) => (
-          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.002]}>
-            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.008]} />
-            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
+            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
           </mesh>
         ))}
+        
+        {/* Barra horizontal superior */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+        
+        {/* Barra horizontal inferior */}
+        <mesh position={[0, 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
       </group>
 
       {/* Chapa perfurada traseira */}
@@ -225,19 +275,31 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
         <mesh geometry={backPlateGeometry} castShadow>
           <meshStandardMaterial 
             color={metalColor} 
-            metalness={0.7} 
-            roughness={0.3}
+            metalness={0.75} 
+            roughness={0.25}
             side={THREE.DoubleSide}
           />
         </mesh>
         
         {/* Molduras laterais de reforço */}
         {framePositions.map((frame, i) => (
-          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.002]}>
-            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.008]} />
-            <meshStandardMaterial color={metalColor} metalness={0.8} roughness={0.2} />
+          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
+            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
+            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
           </mesh>
         ))}
+        
+        {/* Barra horizontal superior */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
+        
+        {/* Barra horizontal inferior */}
+        <mesh position={[0, 0.008, 0.003]}>
+          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
+          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
+        </mesh>
       </group>
 
       {/* Detalhes decorativos no tampo */}

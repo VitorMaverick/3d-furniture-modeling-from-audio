@@ -1689,39 +1689,19 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       {/* Parafusos de rosca contínua que sustentam cada segmento - FRONTAL */}
       {segmentColumnPositions.map((col, i) => (
         <group key={`seg-column-front-${i}`} position={[col.x, 0, col.zFront]}>
-          {/* Corpo do parafuso fino */}
+          {/* Corpo do parafuso */}
           <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
             <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
             <meshStandardMaterial color="#5A5A5A" metalness={0.85} roughness={0.25} />
           </mesh>
           
-          {/* Rosca espiral mais fina */}
-          {Array.from({ length: Math.floor(bancoMehinakuLegHeight / 0.006) }).map((_, j) => {
-            const threadY = j * 0.006;
-            const threadAngle = j * Math.PI * 0.5;
-            return (
-              <mesh
-                key={`thin-thread-front-${i}-${j}`}
-                position={[
-                  Math.cos(threadAngle) * columnRadius,
-                  threadY + 0.003,
-                  Math.sin(threadAngle) * columnRadius
-                ]}
-                rotation={[0, threadAngle, Math.PI / 2]}
-              >
-                <torusGeometry args={[columnRadius * 1.2, columnRadius * 0.18, 4, 8, Math.PI * 0.7]} />
-                <meshStandardMaterial color="#6A6A6A" metalness={0.75} roughness={0.35} />
-              </mesh>
-            );
-          })}
-          
-          {/* Porca pequena superior */}
+          {/* Porca superior */}
           <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.6, 0]} castShadow>
             <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
           </mesh>
           
-          {/* Porca pequena inferior */}
+          {/* Porca inferior */}
           <mesh position={[0, -columnRadius * 0.6, 0]} castShadow>
             <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
@@ -1732,39 +1712,19 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       {/* Parafusos de rosca contínua que sustentam cada segmento - TRASEIRO */}
       {segmentColumnPositions.map((col, i) => (
         <group key={`seg-column-back-${i}`} position={[col.x, 0, col.zBack]}>
-          {/* Corpo do parafuso fino */}
+          {/* Corpo do parafuso */}
           <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
             <cylinderGeometry args={[columnRadius, columnRadius, bancoMehinakuLegHeight, 16]} />
             <meshStandardMaterial color="#5A5A5A" metalness={0.85} roughness={0.25} />
           </mesh>
           
-          {/* Rosca espiral mais fina */}
-          {Array.from({ length: Math.floor(bancoMehinakuLegHeight / 0.006) }).map((_, j) => {
-            const threadY = j * 0.006;
-            const threadAngle = j * Math.PI * 0.5;
-            return (
-              <mesh
-                key={`thin-thread-back-${i}-${j}`}
-                position={[
-                  Math.cos(threadAngle) * columnRadius,
-                  threadY + 0.003,
-                  Math.sin(threadAngle) * columnRadius
-                ]}
-                rotation={[0, threadAngle, Math.PI / 2]}
-              >
-                <torusGeometry args={[columnRadius * 1.2, columnRadius * 0.18, 4, 8, Math.PI * 0.7]} />
-                <meshStandardMaterial color="#6A6A6A" metalness={0.75} roughness={0.35} />
-              </mesh>
-            );
-          })}
-          
-          {/* Porca pequena superior */}
+          {/* Porca superior */}
           <mesh position={[0, bancoMehinakuLegHeight + columnRadius * 0.6, 0]} castShadow>
             <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />
           </mesh>
           
-          {/* Porca pequena inferior */}
+          {/* Porca inferior */}
           <mesh position={[0, -columnRadius * 0.6, 0]} castShadow>
             <cylinderGeometry args={[columnRadius * 1.5, columnRadius * 1.5, columnRadius * 0.8, 6]} />
             <meshStandardMaterial color="#4A4A4A" metalness={0.9} roughness={0.2} />

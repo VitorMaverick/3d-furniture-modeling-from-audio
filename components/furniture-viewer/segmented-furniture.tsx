@@ -1811,14 +1811,12 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     
     // Função para obter intensidade baseada no modo de textura
     const getIntensityForMode = (normalizedX: number, normalizedY: number, col: number, row: number): number => {
-      // Se temos parâmetros de IA, usa eles
-      if (aiWaveParams) {
-        const aiResult = getAIWaveIntensity(normalizedY, normalizedX, aiWaveParams, plateHeight);
-        return aiResult.intensity;
-      }
-      
       // Caso contrário, usa o modo de textura selecionado
       switch (textureMode) {
+        case "solid":
+          // Sólido: sem variação, todos os furos iguais
+          return 0.5;
+          
         case "waveform":
           // Waveform: intensidade varia horizontalmente (tempo) com ondulação vertical
           const waveBase = getWaveformIntensity(normalizedX, 0);
@@ -1832,13 +1830,36 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
           const isInFFTBar = normalizedY < fftMag;
           return isInFFTBar ? fftMag * fftIntensity : 0.1;
           
-        case "stft":
+        case "spectrogram":
           // STFT/Spectrogram: grade 2D de intensidades
-          const stftIntensity = getSTFTIntensity(normalizedY, col, cols);
-          return stftIntensity * spectrogramIntensity;
+          const stftVal = getSTFTIntensity(normalizedY, col, cols);
+          return stftVal * spectrogramIntensity;
+          
+        case "combined":
+          // Combinado: mistura de waveform, FFT e spectrogram
+          const waveInt = getWaveformIntensity(normalizedX, 0);
+          const fftInt = getFFTIntensity(normalizedX);
+          const stftInt = getSTFTIntensity(normalizedY, col, cols);
+          
+          const waveComponent = Math.sin(normalizedX * Math.PI * 6) * waveInt;
+          const fftComponent = fftInt * (1 - normalizedY * 0.5);
+          const stftComponent = stftInt * 0.5;
+          
+          const combinedIntensity = (waveComponent * 0.3 + fftComponent * 0.4 + stftComponent * 0.3);
+          return Math.max(0, Math.min(1, combinedIntensity));
+          
+        case "ai-image":
+          // Se temos parâmetros de IA, usa eles
+          if (aiWaveParams) {
+            const aiResult = getAIWaveIntensity(normalizedY, normalizedX, aiWaveParams, plateHeight);
+            return aiResult.intensity;
+          }
+          // Fallback para waveform se não tiver parâmetros de IA
+          const fallbackWave = getWaveformIntensity(normalizedX, 0);
+          return Math.max(0, Math.min(1, fallbackWave * waveIntensity));
           
         default:
-          return getFFTIntensity(normalizedX);
+          return 0.5;
       }
     };
     

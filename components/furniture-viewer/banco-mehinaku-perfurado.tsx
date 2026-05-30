@@ -3,7 +3,6 @@
 import { useRef, useMemo } from "react";
 import { useFurniture } from "@/lib/furniture-context";
 import * as THREE from "three";
-import { AudioMesh } from "./audio-material";
 
 // Cria geometria de retangulo com pontas curvas (stadium shape)
 function createRoundedRectShape(width: number, depth: number, radius: number): THREE.Shape {
@@ -27,27 +26,38 @@ function createRoundedRectShape(width: number, depth: number, radius: number): T
 
 // Simula intensidade FFT para determinar padrão de furos
 function getFFTIntensity(freqBin: number): number {
-  // Distribuição típica de FFT: mais energia em baixas frequências
   const decay = Math.exp(-freqBin * 2.5);
-  // Adiciona picos em certas frequências (simulando harmonicos)
   const harmonics = Math.sin(freqBin * Math.PI * 6) * 0.3 + 0.7;
   return Math.max(0.1, decay * harmonics);
 }
 
-// Cria furo em forma de trevo/flor de 4 pétalas (baseado na imagem de referência)
+// Simula intensidade Waveform
+function getWaveformIntensity(x: number): number {
+  const wave1 = Math.sin(x * Math.PI * 8) * 0.4;
+  const wave2 = Math.sin(x * Math.PI * 16 + 0.5) * 0.2;
+  const wave3 = Math.sin(x * Math.PI * 4) * 0.3;
+  return Math.abs(wave1 + wave2 + wave3) + 0.1;
+}
+
+// Simula intensidade STFT/Spectrogram
+function getSTFTIntensity(y: number, x: number): number {
+  const timeVar = Math.sin(x * Math.PI * 6) * 0.3 + 0.5;
+  const freqVar = Math.exp(-Math.abs(y - 0.5) * 3) * 0.8;
+  const noise = Math.sin(x * 37 + y * 53) * 0.1;
+  return Math.max(0, Math.min(1, timeVar * freqVar + noise));
+}
+
+// Cria furo em forma de trevo/flor de 4 pétalas
 function createCloverHole(x: number, y: number, size: number): THREE.Path {
   const holePath = new THREE.Path();
   const petalRadius = size * 0.45;
-  const centerRadius = size * 0.15;
   const numPetals = 4;
   
-  // Desenha um trevo de 4 pétalas
   const points: { x: number; y: number }[] = [];
   const segments = 32;
   
   for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2;
-    // Função que cria forma de trevo
     const r = petalRadius * (0.5 + 0.5 * Math.abs(Math.cos(numPetals * angle / 2)));
     points.push({
       x: x + Math.cos(angle) * r,
@@ -69,9 +79,8 @@ function createCrossHole(x: number, y: number, size: number): THREE.Path {
   const holePath = new THREE.Path();
   const s = size / 2;
   const armWidth = s * 0.35;
-  const r = armWidth * 0.3; // Raio do arredondamento
+  const r = armWidth * 0.3;
   
-  // Cruz com cantos arredondados
   holePath.moveTo(x - armWidth + r, y - s);
   holePath.lineTo(x + armWidth - r, y - s);
   holePath.quadraticCurveTo(x + armWidth, y - s, x + armWidth, y - s + r);
@@ -102,7 +111,6 @@ function createCrossHole(x: number, y: number, size: number): THREE.Path {
 }
 
 // Banco Mehinaku com Chapa Perfurada
-// Base com padrão FFT em chapa perfurada ao invés de rede fina
 export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
   const groupRef = useRef<THREE.Group>(null);
   const { params } = useFurniture();
@@ -116,6 +124,10 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     bancoMehinakuPerfuradoHoleSize,
     bancoMehinakuPerfuradoPlateThickness,
     bancoMehinakuPerfuradoHolePattern,
+    textureMode,
+    waveIntensity,
+    fftIntensity,
+    spectrogramIntensity,
   } = params;
 
   const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
@@ -136,14 +148,14 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
   }, [bancoMehinakuPerfuradoTopWidth, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, cornerRadius]);
 
-  // Gera a geometria da chapa perfurada com padrão FFT
+  // Gera a geometria da chapa perfurada baseada no modo de textura
   const { frontPlateGeometry, backPlateGeometry, framePositions } = useMemo(() => {
     const holeSize = bancoMehinakuPerfuradoHoleSize;
     const thickness = bancoMehinakuPerfuradoPlateThickness;
     const plateHeight = bancoMehinakuPerfuradoLegHeight;
     const useClover = bancoMehinakuPerfuradoHolePattern === "clover";
     
-    // Número de colunas e linhas de furos - padrão mais denso
+    // Padrão mais denso
     const spacing = holeSize * 1.8;
     const cols = Math.floor(panelWidth / spacing);
     const rows = Math.floor(plateHeight / spacing);
@@ -156,36 +168,66 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     plateShape.lineTo(-panelWidth / 2, plateHeight);
     plateShape.lineTo(-panelWidth / 2, 0);
     
-    // Adiciona furos baseados no padrão FFT
     const colSpacing = panelWidth / (cols + 1);
     const rowSpacing = plateHeight / (rows + 1);
     
+    // Funcao para obter intensidade baseada no modo de textura
+    const getIntensityForMode = (normalizedX: number, normalizedY: number): number => {
+      switch (textureMode) {
+        case "solid":
+          return 0.5;
+          
+        case "waveform":
+          const waveBase = getWaveformIntensity(normalizedX);
+          const verticalWave = Math.sin(normalizedY * Math.PI * 4) * 0.2;
+          return Math.max(0, Math.min(1, (waveBase + verticalWave) * waveIntensity));
+          
+        case "fft":
+          const fftMag = getFFTIntensity(normalizedX);
+          const isInFFTBar = normalizedY < fftMag;
+          return isInFFTBar ? fftMag * fftIntensity : 0.1;
+          
+        case "spectrogram":
+          const stftVal = getSTFTIntensity(normalizedY, normalizedX);
+          return stftVal * spectrogramIntensity;
+          
+        case "combined":
+          const waveInt = getWaveformIntensity(normalizedX);
+          const fftInt = getFFTIntensity(normalizedX);
+          const stftInt = getSTFTIntensity(normalizedY, normalizedX);
+          
+          const waveComponent = Math.sin(normalizedX * Math.PI * 6) * waveInt;
+          const fftComponent = fftInt * (1 - normalizedY * 0.5);
+          const stftComponent = stftInt * 0.5;
+          
+          return Math.max(0, Math.min(1, waveComponent * 0.3 + fftComponent * 0.4 + stftComponent * 0.3));
+          
+        default:
+          return 0.5;
+      }
+    };
+    
     for (let col = 0; col < cols; col++) {
-      const normalizedFreq = col / cols;
-      const fftMagnitude = getFFTIntensity(normalizedFreq);
-      // Altura máxima das "barras" FFT
-      const maxBarRows = Math.floor(rows * fftMagnitude);
-      
       for (let row = 0; row < rows; row++) {
         const x = -panelWidth / 2 + colSpacing * (col + 1);
         const y = rowSpacing * (row + 1);
         
-        // Determina se deve ter furo baseado no padrão FFT
-        const isInBar = row < maxBarRows;
+        const normalizedX = col / cols;
+        const normalizedY = row / rows;
         
-        // Ajusta tamanho do furo baseado na posição no padrão FFT
-        // Furos menores onde há mais "energia" (dentro das barras)
-        const sizeMultiplier = isInBar ? 0.6 : 1.0;
+        // Obtem intensidade baseada no modo de textura
+        const intensity = getIntensityForMode(normalizedX, normalizedY);
+        
+        // Tamanho do furo inversamente proporcional a intensidade
+        const sizeMultiplier = 0.4 + (1 - intensity) * 0.6;
         const adjustedSize = holeSize * sizeMultiplier;
         
-        // Cria o furo com o padrão selecionado
+        // Cria o furo com o padrao selecionado
         let holePath: THREE.Path;
         
         if (useClover) {
-          // Padrão trevo/flor como na imagem de referência
           holePath = createCloverHole(x, y, adjustedSize);
         } else {
-          // Padrão cruz como alternativa
           holePath = createCrossHole(x, y, adjustedSize);
         }
         
@@ -202,7 +244,6 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     const frontGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
     const backGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
     
-    // Posições das molduras de reforço laterais
     const frames = [
       { x: -panelWidth / 2 - 0.012, width: 0.024 },
       { x: panelWidth / 2 + 0.012, width: 0.024 },
@@ -213,9 +254,8 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
       backPlateGeometry: backGeo,
       framePositions: frames
     };
-  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern]);
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern, textureMode, waveIntensity, fftIntensity, spectrogramIntensity]);
 
-  // Cor do tampo (madeira)
   const woodColor = "#5D4037";
   // Cor metálica para a chapa
   const metalColor = bancoMehinakuPerfuradoColor;

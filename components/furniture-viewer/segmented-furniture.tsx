@@ -1748,6 +1748,11 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     bancoMehinakuPerfuradoHoleSize,
     bancoMehinakuPerfuradoPlateThickness,
     bancoMehinakuPerfuradoHolePattern,
+    textureMode,
+    waveIntensity,
+    fftIntensity,
+    spectrogramIntensity,
+    aiWaveParams,
   } = params;
 
   const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
@@ -1782,7 +1787,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
   }, [bancoMehinakuPerfuradoTopWidth, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, cornerRadius]);
 
-  // Gera a geometria da chapa perfurada com padrão FFT
+  // Gera a geometria da chapa perfurada com padrão baseado no modo de textura
   const { frontPlateGeometry, backPlateGeometry, framePositions } = useMemo(() => {
     const holeSize = bancoMehinakuPerfuradoHoleSize;
     const thickness = bancoMehinakuPerfuradoPlateThickness;
@@ -1804,17 +1809,54 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     const colSpacing = panelWidth / (cols + 1);
     const rowSpacing = plateHeight / (rows + 1);
     
-    for (let col = 0; col < cols; col++) {
-      const normalizedFreq = col / cols;
-      const fftMagnitude = getFFTIntensity(normalizedFreq);
-      const maxBarRows = Math.floor(rows * fftMagnitude);
+    // Função para obter intensidade baseada no modo de textura
+    const getIntensityForMode = (normalizedX: number, normalizedY: number, col: number, row: number): number => {
+      // Se temos parâmetros de IA, usa eles
+      if (aiWaveParams) {
+        const aiResult = getAIWaveIntensity(normalizedY, normalizedX, aiWaveParams, plateHeight);
+        return aiResult.intensity;
+      }
       
+      // Caso contrário, usa o modo de textura selecionado
+      switch (textureMode) {
+        case "waveform":
+          // Waveform: intensidade varia horizontalmente (tempo) com ondulação vertical
+          const waveBase = getWaveformIntensity(normalizedX, 0);
+          const verticalWave = Math.sin(normalizedY * Math.PI * 4) * 0.2;
+          return Math.max(0, Math.min(1, (waveBase + verticalWave) * waveIntensity));
+          
+        case "fft":
+          // FFT: barras verticais com altura baseada na frequência
+          const fftMag = getFFTIntensity(normalizedX);
+          // A intensidade diminui conforme sobe (row maior = mais alto)
+          const isInFFTBar = normalizedY < fftMag;
+          return isInFFTBar ? fftMag * fftIntensity : 0.1;
+          
+        case "stft":
+          // STFT/Spectrogram: grade 2D de intensidades
+          const stftIntensity = getSTFTIntensity(normalizedY, col, cols);
+          return stftIntensity * spectrogramIntensity;
+          
+        default:
+          return getFFTIntensity(normalizedX);
+      }
+    };
+    
+    for (let col = 0; col < cols; col++) {
       for (let row = 0; row < rows; row++) {
         const x = -panelWidth / 2 + colSpacing * (col + 1);
         const y = rowSpacing * (row + 1);
         
-        const isInBar = row < maxBarRows;
-        const sizeMultiplier = isInBar ? 0.6 : 1.0;
+        const normalizedX = col / cols;
+        const normalizedY = row / rows;
+        
+        // Obtém intensidade baseada no modo de textura
+        const intensity = getIntensityForMode(normalizedX, normalizedY, col, row);
+        
+        // Tamanho do furo inversamente proporcional à intensidade
+        // Alta intensidade (som forte) = furos menores (mais material)
+        // Baixa intensidade (silêncio) = furos maiores (menos material)
+        const sizeMultiplier = 0.4 + (1 - intensity) * 0.6; // Range: 0.4 a 1.0
         const adjustedSize = holeSize * sizeMultiplier;
         
         // Cria furo com padrão selecionado
@@ -1896,7 +1938,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       backPlateGeometry: backGeo,
       framePositions: frames
     };
-  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern]);
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern, textureMode, waveIntensity, fftIntensity, spectrogramIntensity, aiWaveParams]);
 
   const woodColor = "#5D4037";
   const metalColor = bancoMehinakuPerfuradoColor;

@@ -1986,6 +1986,14 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       ctx.fillRect(0, 0, logicalWidth, logicalHeight);
       tex.needsUpdate = true;
     }
+    
+    // Chama updateMask imediatamente para desenhar os furos no primeiro render
+    // Isso garante que os furos aparecem no modo solid tambem
+    setTimeout(() => {
+      if (maskCanvasRef.current && maskTextureRef.current) {
+        updateMask(0);
+      }
+    }, 0);
 
     return () => {
       if (maskTextureRef.current) {

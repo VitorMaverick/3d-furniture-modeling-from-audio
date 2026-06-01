@@ -147,7 +147,7 @@ const defaultParams: FurnitureParams = {
   bancoMehinakuLegHeight: 0.2,
   bancoMehinakuLegCurve: 0.3,
   bancoMehinakuColor: "#5D4037",
-  bancoMehinakuColumnRadius: 0.018, // Raio das colunas (parafusos de rosca) - aumentado para maior robustez
+  bancoMehinakuColumnRadius: 0.008, // Raio das colunas (parafusos de rosca) - mais fino para ter espaco entre eles
   
   // Banco Mehinaku Perfurado
   bancoMehinakuPerfuradoTopWidth: 0.55,

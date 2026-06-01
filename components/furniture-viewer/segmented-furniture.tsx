@@ -952,8 +952,7 @@ function generateFlatPanelSegmentsWithWires(
           break;
         }
         case "spectrogram": {
-          // STFT/Espectrograma: matriz 2D de frequencia (Y) x tempo (X)
-          // Cria padroes de "manchas" de energia como no espectrograma real
+          // STFT/Espectrograma - sem deslocamento Z, apenas variacao de cor e escala
           const stftIntensity = getSTFTIntensity(normalizedLayer, seg, actualSegments);
           
           // Adiciona variacao de frequencia baseada na posicao vertical
@@ -966,7 +965,7 @@ function generateFlatPanelSegmentsWithWires(
           
           const combinedIntensity = stftIntensity * freqWeight * (0.7 + timeVariation * 0.3);
           
-          zDisplacement = combinedIntensity * maxDisplacement * 2;
+          zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.5 + combinedIntensity * 0.9;
           break;
         }
@@ -1157,13 +1156,13 @@ function generateLateralFlatPanelSegmentsWithWires(
           break;
         }
         case "spectrogram": {
-          // STFT/Espectrograma
+          // STFT/Espectrograma - sem deslocamento X, apenas variacao de cor e escala
           const stftIntensity = getSTFTIntensity(normalizedLayer, seg, actualSegments);
           const freqWeight = 1 - normalizedLayer * 0.5;
           const timeVariation = Math.sin(normalizedSeg * Math.PI * 6) * 0.3 + 
                                Math.sin(normalizedSeg * Math.PI * 2.5) * 0.4;
           const combinedIntensity = stftIntensity * freqWeight * (0.7 + timeVariation * 0.3);
-          xDisplacement = combinedIntensity * maxDisplacement * 2;
+          xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.5 + combinedIntensity * 0.9;
           break;
         }

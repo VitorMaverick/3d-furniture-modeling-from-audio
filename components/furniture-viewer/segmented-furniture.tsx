@@ -1934,6 +1934,10 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskTextureRef = useRef<THREE.CanvasTexture | null>(null);
   const maskConfigRef = useRef<{ dpr: number; logicalWidth: number; logicalHeight: number; cols: number; rows: number } | null>(null);
+  // State copy of the texture so that creating it (inside an effect) triggers a
+  // re-render and the material binds the alphaMap. Without this, the holes only
+  // appear after some other state change forces a re-render.
+  const [maskTexture, setMaskTexture] = useState<THREE.CanvasTexture | null>(null);
 
   // local clock + paused snapshot to safely scope the pause time used by mask and segments
   const clockRef = useRef(0);
@@ -1976,6 +1980,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     tex.flipY = false;
     tex.needsUpdate = true;
     maskTextureRef.current = tex;
+    // expose via state so the material re-renders and binds the alphaMap immediately
+    setMaskTexture(tex);
 
     // ensure context transform is set before first draw
     const ctx = canvas.getContext('2d');
@@ -1994,6 +2000,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       }
       maskCanvasRef.current = null;
       maskConfigRef.current = null;
+      setMaskTexture(null);
     };
     // recreate if grid size changes
   }, [segmentsPerLayer, bancoMehinakuPerfuradoLegHeight, segmentHeight, params.animationSpeed]);
@@ -2051,6 +2058,24 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       ctx.fillRect(Math.round(x - armL / 2), Math.round(y - armW / 2), armL, armW);
     };
 
+    // Furo quadrado (chapa perfurada de aço) com cantos levemente arredondados,
+    // como em uma chapa de ferro perfurada real disposta em grade regular.
+    const drawSquare = (x: number, y: number, r: number) => {
+      // Lado menor que o diâmetro para preservar as "pontes" de metal entre os furos,
+      // reproduzindo a área aberta (~60%) de uma chapa de ferro perfurada real.
+      const side = Math.max(1, Math.round(r * 1.5));
+      const left = Math.round(x - side / 2);
+      const top = Math.round(y - side / 2);
+      const corner = Math.max(0, Math.floor(side * 0.18));
+      ctx.beginPath();
+      if (typeof (ctx as any).roundRect === 'function') {
+        (ctx as any).roundRect(left, top, side, side, corner);
+      } else {
+        ctx.rect(left, top, side, side);
+      }
+      ctx.fill();
+    };
+
     const pattern = bancoMehinakuPerfuradoHolePattern || 'round';
     ctx.globalCompositeOperation = 'destination-out';
     for (let col = 0; col < cols; col++) {
@@ -2084,6 +2109,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
           drawClover(cx, cy, radiusPx);
         } else if (pattern === 'cross') {
           drawCross(cx, cy, radiusPx);
+        } else if (pattern === 'square') {
+          drawSquare(cx, cy, radiusPx);
         } else {
           ctx.beginPath();
           ctx.arc(Math.round(cx), Math.round(cy), radiusPx, 0, Math.PI * 2);
@@ -2128,7 +2155,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
             roughness={0.25}
             side={THREE.DoubleSide}
             transparent={true}
-            alphaMap={maskTextureRef.current || undefined}
+            alphaMap={maskTexture || undefined}
             alphaTest={0.01}
           />
         </mesh>
@@ -2189,7 +2216,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
             roughness={0.25}
             side={THREE.DoubleSide}
             transparent={true}
-            alphaMap={maskTextureRef.current || undefined}
+            alphaMap={maskTexture || undefined}
             alphaTest={0.01}
           />
         </mesh>

@@ -73,7 +73,7 @@ export interface FurnitureParams {
   bancoMehinakuPerfuradoColor: string;
   bancoMehinakuPerfuradoHoleSize: number; // Tamanho dos furos na chapa
   bancoMehinakuPerfuradoPlateThickness: number; // Espessura da chapa
-  bancoMehinakuPerfuradoHolePattern: "clover" | "cross"; // Padrão dos furos
+  bancoMehinakuPerfuradoHolePattern: "clover" | "cross" | "square"; // Padrão dos furos
   
   // Parâmetros do Banco Waujá
   bancoWaujaWidth: number;
@@ -157,7 +157,7 @@ const defaultParams: FurnitureParams = {
   bancoMehinakuPerfuradoColor: "#424242", // Cor metálica
   bancoMehinakuPerfuradoHoleSize: 0.025, // Tamanho dos furos - definido para máximo por padrão
   bancoMehinakuPerfuradoPlateThickness: 0.004, // Espessura da chapa - aumentado para mais resistência
-  bancoMehinakuPerfuradoHolePattern: "clover" as const, // Padrão dos furos: "clover" (trevo) ou "cross" (cruz)
+  bancoMehinakuPerfuradoHolePattern: "square" as const, // Padrão dos furos: "square" (quadrado), "clover" (trevo) ou "cross" (cruz)
   
   // Banco Waujá
   bancoWaujaWidth: 0.5,

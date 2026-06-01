@@ -90,7 +90,7 @@ function SceneContent() {
       <OrbitControls
         enablePan={true}
         enableZoom={true}
-        minDistance={2}
+        minDistance={0.3}
         maxDistance={15}
         autoRotate={params.autoRotate}
         autoRotateSpeed={params.rotationSpeed * 2}

@@ -237,23 +237,13 @@ function getInitialDisplacement(
       break;
   }
 
-  // Deslocamento radial baseado na intensidade
-  const displacement = (intensity - 0.5) * intensityMultiplier * 0.15;
-  
-  // Calcula direcao radial do centro
-  const px = basePosition[0];
-  const pz = basePosition[2];
-  const dist = Math.sqrt(px * px + pz * pz);
-  
-  if (dist > 0.01) {
-    return {
-      dx: (px / dist) * displacement,
-      dz: (pz / dist) * displacement,
-      scale: scaleModifier
-    };
-  }
-  
-  return { dx: 0, dz: 0, scale: scaleModifier };
+  // Deslocamento radial removido - apenas variacao de cor e escala
+  // Segmentos ficam na posicao base para evitar formas flutuantes
+  return {
+    dx: 0,
+    dz: 0,
+    scale: scaleModifier
+  };
 }
 
 // Funcao legada para compatibilidade
@@ -914,24 +904,18 @@ function generateFlatPanelSegmentsWithWires(
 
       switch (effectiveTextureMode) {
         case "waveform": {
-          // Forma de onda: cada coluna e uma amostra no tempo, altura e a amplitude
-          // Simula ondas sonoras com picos e vales variando ao longo da largura
-          const timePhase = normalizedSeg * Math.PI * 8; // 4 ciclos completos
-          const amplitude = getWaveformIntensity(normalizedSeg, 0); // Intensidade varia com posicao horizontal
-          
-          // Deslocamento em formato de onda senoidal modulada pela amplitude
+          // Forma de onda - sem deslocamento Z, apenas variacao de cor e escala
+          const timePhase = normalizedSeg * Math.PI * 8;
+          const amplitude = getWaveformIntensity(normalizedSeg, 0);
           const waveform = Math.sin(timePhase) * amplitude;
-          
-          // A altura influencia a visibilidade da onda (mais forte no meio)
           const heightEnvelope = Math.sin(normalizedLayer * Math.PI);
           
-          zDisplacement = waveform * heightEnvelope * maxDisplacement * 1.5;
+          zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.6 + Math.abs(waveform) * heightEnvelope * 0.6;
           break;
         }
         case "fft": {
-          // FFT: espectro de frequencias - eixo X e frequencia, altura das barras e magnitude
-          // Baixas frequencias (esquerda) tem mais energia, decai para direita
+          // FFT: espectro de frequencias - sem deslocamento Z, apenas variacao de cor e escala
           const freqBin = normalizedSeg;
           const fftMagnitude = getFFTIntensity(freqBin);
           
@@ -940,20 +924,16 @@ function generateFlatPanelSegmentsWithWires(
           const isInBar = normalizedLayer < barHeight;
           
           if (isInBar) {
-            // Dentro da barra - projecao proporcional a magnitude
-            const barPosition = normalizedLayer / barHeight; // 0 na base, 1 no topo da barra
-            zDisplacement = fftMagnitude * maxDisplacement * 2 * (1 - barPosition * 0.3);
+            zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
             scaleModifier = 0.7 + fftMagnitude * 0.8;
           } else {
-            // Acima da barra - sem projecao
             zDisplacement = 0;
             scaleModifier = 0.3;
           }
           break;
         }
         case "spectrogram": {
-          // STFT/Espectrograma: matriz 2D de frequencia (Y) x tempo (X)
-          // Cria padroes de "manchas" de energia como no espectrograma real
+          // STFT/Espectrograma - sem deslocamento Z, apenas variacao de cor e escala
           const stftIntensity = getSTFTIntensity(normalizedLayer, seg, actualSegments);
           
           // Adiciona variacao de frequencia baseada na posicao vertical
@@ -966,33 +946,33 @@ function generateFlatPanelSegmentsWithWires(
           
           const combinedIntensity = stftIntensity * freqWeight * (0.7 + timeVariation * 0.3);
           
-          zDisplacement = combinedIntensity * maxDisplacement * 2;
+          zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.5 + combinedIntensity * 0.9;
           break;
         }
         case "combined": {
-          // Combinacao de todos os padroes
+          // Combinacao de todos os padroes - sem deslocamento Z, apenas variacao de cor e escala
           const waveInt = getWaveformIntensity(normalizedSeg, 0);
           const fftInt = getFFTIntensity(normalizedSeg);
           const stftInt = getSTFTIntensity(normalizedLayer, seg, actualSegments);
           
-          // Mistura os tres padroes
           const waveComponent = Math.sin(normalizedSeg * Math.PI * 6) * waveInt;
           const fftComponent = fftInt * (1 - normalizedLayer * 0.5);
           const stftComponent = stftInt;
           
           const combined = (waveComponent + fftComponent + stftComponent) / 2.5;
           
-          zDisplacement = combined * maxDisplacement * 1.5;
+          zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.5 + Math.abs(combined) * 0.8;
           break;
         }
         case "ai-image": {
+          // AI image - sem deslocamento Z, apenas variacao de cor e escala
           if (!aiWaveParams) {
             const amp = getWaveformIntensity(normalizedSeg, 0);
             const wave = Math.sin(normalizedSeg * Math.PI * 8) * amp;
             const env = Math.sin(normalizedLayer * Math.PI);
-            zDisplacement = wave * env * maxDisplacement * 1.5;
+            zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
             scaleModifier = 0.6 + Math.abs(wave) * env * 0.6;
           } else {
             let baseAmp: number;
@@ -1007,7 +987,7 @@ function generateFlatPanelSegmentsWithWires(
             const osc = 2 + Math.round(aiWaveParams.complexity * 6);
             const wave = Math.sin(normalizedSeg * Math.PI * 2 * osc) * baseAmp;
             const env = Math.sin(normalizedLayer * Math.PI);
-            zDisplacement = wave * env * maxDisplacement * 1.5;
+            zDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
             scaleModifier = 0.5 + Math.abs(wave) * env * 0.7;
           }
           break;
@@ -1131,24 +1111,23 @@ function generateLateralFlatPanelSegmentsWithWires(
 
       switch (effectiveTextureMode) {
         case "waveform": {
-          // Forma de onda: cada coluna e uma amostra no tempo, altura e a amplitude
+          // Forma de onda - sem deslocamento X, apenas variacao de cor e escala
           const timePhase = normalizedSeg * Math.PI * 8;
           const amplitude = getWaveformIntensity(normalizedSeg, 0);
           const waveform = Math.sin(timePhase) * amplitude;
           const heightEnvelope = Math.sin(normalizedLayer * Math.PI);
-          xDisplacement = waveform * heightEnvelope * maxDisplacement * 1.5;
+          xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.6 + Math.abs(waveform) * heightEnvelope * 0.6;
           break;
         }
         case "fft": {
-          // FFT: espectro de frequencias
+          // FFT: espectro de frequencias - sem deslocamento X, apenas variacao de cor e escala
           const freqBin = normalizedSeg;
           const fftMagnitude = getFFTIntensity(freqBin);
           const barHeight = fftMagnitude;
           const isInBar = normalizedLayer < barHeight;
           if (isInBar) {
-            const barPosition = normalizedLayer / barHeight;
-            xDisplacement = fftMagnitude * maxDisplacement * 2 * (1 - barPosition * 0.3);
+            xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
             scaleModifier = 0.7 + fftMagnitude * 0.8;
           } else {
             xDisplacement = 0;
@@ -1157,17 +1136,18 @@ function generateLateralFlatPanelSegmentsWithWires(
           break;
         }
         case "spectrogram": {
-          // STFT/Espectrograma
+          // STFT/Espectrograma - sem deslocamento X, apenas variacao de cor e escala
           const stftIntensity = getSTFTIntensity(normalizedLayer, seg, actualSegments);
           const freqWeight = 1 - normalizedLayer * 0.5;
           const timeVariation = Math.sin(normalizedSeg * Math.PI * 6) * 0.3 + 
                                Math.sin(normalizedSeg * Math.PI * 2.5) * 0.4;
           const combinedIntensity = stftIntensity * freqWeight * (0.7 + timeVariation * 0.3);
-          xDisplacement = combinedIntensity * maxDisplacement * 2;
+          xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.5 + combinedIntensity * 0.9;
           break;
         }
         case "combined": {
+          // Combinacao de todos os padroes - sem deslocamento X, apenas variacao de cor e escala
           const waveInt = getWaveformIntensity(normalizedSeg, 0);
           const fftInt = getFFTIntensity(normalizedSeg);
           const stftInt = getSTFTIntensity(normalizedLayer, seg, actualSegments);
@@ -1175,16 +1155,17 @@ function generateLateralFlatPanelSegmentsWithWires(
           const fftComponent = fftInt * (1 - normalizedLayer * 0.5);
           const stftComponent = stftInt;
           const combined = (waveComponent + fftComponent + stftComponent) / 2.5;
-          xDisplacement = combined * maxDisplacement * 1.5;
+          xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
           scaleModifier = 0.5 + Math.abs(combined) * 0.8;
           break;
         }
         case "ai-image": {
+          // AI image - sem deslocamento X, apenas variacao de cor e escala
           if (!aiWaveParams) {
             const amp = getWaveformIntensity(normalizedSeg, 0);
             const wave = Math.sin(normalizedSeg * Math.PI * 8) * amp;
             const env = Math.sin(normalizedLayer * Math.PI);
-            xDisplacement = wave * env * maxDisplacement * 1.5;
+            xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
             scaleModifier = 0.6 + Math.abs(wave) * env * 0.6;
           } else {
             let baseAmp: number;
@@ -1199,7 +1180,7 @@ function generateLateralFlatPanelSegmentsWithWires(
             const osc = 2 + Math.round(aiWaveParams.complexity * 6);
             const wave = Math.sin(normalizedSeg * Math.PI * 2 * osc) * baseAmp;
             const env = Math.sin(normalizedLayer * Math.PI);
-            xDisplacement = wave * env * maxDisplacement * 1.5;
+            xDisplacement = 0; // Mantem segmentos na base, sem criar forma flutuante
             scaleModifier = 0.5 + Math.abs(wave) * env * 0.7;
           }
           break;
@@ -2157,7 +2138,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       {textureMode !== 'solid' && frontSegments.map((seg) => {
         const s = seg as any;
         const pos: [number, number, number] = s.position;
-        const adjustedPos: [number, number, number] = [pos[0], pos[1], pos[2] - 0.002];
+        // Fixa posicao Z para evitar deslocamento que causa duplicacao visual
+        const fixedZ = bancoMehinakuPerfuradoTopDepth / 2 - 0.022;
+        const adjustedPos: [number, number, number] = [pos[0], pos[1], fixedZ];
 
         // compute intensity at this segment cell so segment size/color follow the holes
         const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
@@ -2216,7 +2199,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       {textureMode !== 'solid' && backSegments.map((seg) => {
         const s = seg as any;
         const pos: [number, number, number] = s.position;
-        const adjustedPos: [number, number, number] = [pos[0], pos[1], pos[2] + 0.002];
+        // Fixa posicao Z para evitar deslocamento que causa duplicacao visual
+        const fixedZ = -bancoMehinakuPerfuradoTopDepth / 2 + 0.022;
+        const adjustedPos: [number, number, number] = [pos[0], pos[1], fixedZ];
 
         const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
         const rowsPlate = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));

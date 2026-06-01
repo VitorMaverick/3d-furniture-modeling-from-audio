@@ -1942,6 +1942,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
   });
 
   const [pausedSnapshot, setPausedSnapshot] = useState<number | null>(null);
+  const [maskReady, setMaskReady] = useState(false);
+  
   useEffect(() => {
     if (params.animationPaused) {
       setPausedSnapshot(clockRef.current);
@@ -1992,8 +1994,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     setTimeout(() => {
       if (maskCanvasRef.current && maskTextureRef.current) {
         updateMask(0);
+        setMaskReady(true);
       }
-    }, 0);
+    }, 10);
 
     return () => {
       if (maskTextureRef.current) {
@@ -2130,15 +2133,26 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]}>
         <mesh rotation={[0, 0, 0]} castShadow>
           <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
-          <meshStandardMaterial
-            color={metalColor}
-            metalness={0.75}
-            roughness={0.25}
-            side={THREE.DoubleSide}
-            transparent={true}
-            alphaMap={maskTextureRef.current || undefined}
-            alphaTest={0.01}
-          />
+          {maskReady && maskTextureRef.current ? (
+            <meshStandardMaterial
+              color={metalColor}
+              metalness={0.75}
+              roughness={0.25}
+              side={THREE.DoubleSide}
+              transparent={true}
+              alphaMap={maskTextureRef.current}
+              alphaTest={0.01}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={metalColor}
+              metalness={0.75}
+              roughness={0.25}
+              side={THREE.DoubleSide}
+              transparent={true}
+              opacity={0.5}
+            />
+          )}
         </mesh>
       </group>
 
@@ -2191,15 +2205,26 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} rotation={[0, Math.PI, 0]}>
         <mesh rotation={[0, Math.PI, 0]} castShadow>
           <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
-          <meshStandardMaterial
-            color={metalColor}
-            metalness={0.75}
-            roughness={0.25}
-            side={THREE.DoubleSide}
-            transparent={true}
-            alphaMap={maskTextureRef.current || undefined}
-            alphaTest={0.01}
-          />
+          {maskReady && maskTextureRef.current ? (
+            <meshStandardMaterial
+              color={metalColor}
+              metalness={0.75}
+              roughness={0.25}
+              side={THREE.DoubleSide}
+              transparent={true}
+              alphaMap={maskTextureRef.current}
+              alphaTest={0.01}
+            />
+          ) : (
+            <meshStandardMaterial
+              color={metalColor}
+              metalness={0.75}
+              roughness={0.25}
+              side={THREE.DoubleSide}
+              transparent={true}
+              opacity={0.5}
+            />
+          )}
         </mesh>
       </group>
 

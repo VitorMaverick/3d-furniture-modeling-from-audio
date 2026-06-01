@@ -3,6 +3,7 @@
 import { useRef, useMemo } from "react";
 import { useFurniture } from "@/lib/furniture-context";
 import * as THREE from "three";
+import { AudioMesh } from "./audio-material";
 
 // Cria geometria de retangulo com pontas curvas (stadium shape)
 function createRoundedRectShape(width: number, depth: number, radius: number): THREE.Shape {
@@ -108,6 +109,30 @@ function createCrossHole(x: number, y: number, size: number): THREE.Path {
   holePath.quadraticCurveTo(x - armWidth, y - s, x - armWidth + r, y - s);
   
   return holePath;
+}
+
+// Gera UVs planares baseadas na posição XY da geometria (útil para ExtrudeGeometry)
+function generatePlanarUVs(geometry: THREE.BufferGeometry) {
+  geometry.computeBoundingBox();
+  const bbox = geometry.boundingBox!;
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+
+  const pos = geometry.getAttribute('position');
+  const uv = new Float32Array((pos.count) * 2);
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+
+    const u = size.x > 0 ? (x - bbox.min.x) / size.x : 0.5;
+    const v = size.y > 0 ? (y - bbox.min.y) / size.y : 0.5;
+
+    uv[i * 2] = u;
+    uv[i * 2 + 1] = v;
+  }
+
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
 // Banco Mehinaku com Chapa Perfurada
@@ -243,7 +268,16 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
     
     const frontGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
     const backGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
-    
+
+    // Garantir que as geometrias extrudadas tenham coordenadas UV (mapeamento planar XY)
+    try {
+      generatePlanarUVs(frontGeo as THREE.BufferGeometry);
+      generatePlanarUVs(backGeo as THREE.BufferGeometry);
+    } catch (e) {
+      // Se algo falhar, não bloqueia a renderização — UVs podem ficar indefinidas
+      // (debug) console.warn('generatePlanarUVs failed', e);
+    }
+
     const frames = [
       { x: -panelWidth / 2 - 0.012, width: 0.024 },
       { x: panelWidth / 2 + 0.012, width: 0.024 },
@@ -277,15 +311,14 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
         position={[0, 0, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]} 
         rotation={[0, 0, 0]}
       >
-        <mesh geometry={frontPlateGeometry} castShadow>
-          <meshStandardMaterial 
-            color={metalColor} 
-            metalness={0.75} 
-            roughness={0.25}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-        
+        <AudioMesh
+          geometry={<primitive object={frontPlateGeometry} attach="geometry" />}
+          baseColor={metalColor}
+          castShadow={true}
+          // panels should receive light/shadow as well
+          receiveShadow={true}
+        />
+
         {/* Molduras laterais de reforço */}
         {framePositions.map((frame, i) => (
           <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
@@ -312,15 +345,13 @@ export function BancoMehinakuPerfurado({ position = [0, 0, 0] }: { position?: [n
         position={[0, 0, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} 
         rotation={[0, Math.PI, 0]}
       >
-        <mesh geometry={backPlateGeometry} castShadow>
-          <meshStandardMaterial 
-            color={metalColor} 
-            metalness={0.75} 
-            roughness={0.25}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-        
+        <AudioMesh
+          geometry={<primitive object={backPlateGeometry} attach="geometry" />}
+          baseColor={metalColor}
+          castShadow={true}
+          receiveShadow={true}
+        />
+
         {/* Molduras laterais de reforço */}
         {framePositions.map((frame, i) => (
           <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>

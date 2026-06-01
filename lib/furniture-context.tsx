@@ -28,7 +28,6 @@ export interface AIWaveParams {
   highMidEnergy?: number;
   trebleEnergy?: number;
 }
-export type TextureMode = "solid" | "waveform" | "fft" | "spectrogram" | "combined";
 
 export interface FurnitureParams {
   // Aba ativa
@@ -156,7 +155,7 @@ const defaultParams: FurnitureParams = {
   bancoMehinakuPerfuradoTopHeight: 0.04,
   bancoMehinakuPerfuradoLegHeight: 0.2,
   bancoMehinakuPerfuradoColor: "#424242", // Cor metálica
-  bancoMehinakuPerfuradoHoleSize: 0.012, // Tamanho dos furos - ajustado para padrão mais denso
+  bancoMehinakuPerfuradoHoleSize: 0.025, // Tamanho dos furos - definido para máximo por padrão
   bancoMehinakuPerfuradoPlateThickness: 0.004, // Espessura da chapa - aumentado para mais resistência
   bancoMehinakuPerfuradoHolePattern: "clover" as const, // Padrão dos furos: "clover" (trevo) ou "cross" (cruz)
   

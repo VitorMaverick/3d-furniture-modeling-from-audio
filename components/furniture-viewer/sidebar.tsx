@@ -47,6 +47,7 @@ export function Sidebar() {
       table: "mesa",
       roundTable: "mesa-redonda",
       bancoMehinaku: "banco-mehinaku",
+      bancoMehinakuPerfurado: "banco-mehinaku-perfurado",
       bancoWauja: "banco-wauja"
     };
     
@@ -292,25 +293,26 @@ export function Sidebar() {
             onValueChange={(value) => setParams({ activeTab: value as FurnitureTab })}
             className="w-full"
           >
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="chair" className="flex items-center gap-1 text-xs">
+            <TabsList className="flex flex-wrap w-full h-auto gap-1">
+              <TabsTrigger value="chair" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
                 <Armchair className="h-4 w-4" />
                 Cadeira
               </TabsTrigger>
-              <TabsTrigger value="table" className="flex items-center gap-1 text-xs">
+              <TabsTrigger value="table" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
                 <Table2 className="h-4 w-4" />
                 Mesa
               </TabsTrigger>
-              <TabsTrigger value="roundTable" className="flex items-center gap-1 text-xs">
+              <TabsTrigger value="roundTable" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
                 <Circle className="h-4 w-4" />
                 Redonda
               </TabsTrigger>
-            </TabsList>
-            <TabsList className="grid w-full grid-cols-2 mt-1">
-              <TabsTrigger value="bancoMehinaku" className="text-xs py-1.5">
+              <TabsTrigger value="bancoMehinaku" className="flex-1 text-xs py-1.5 min-w-[70px]">
                 Mehinaku
               </TabsTrigger>
-              <TabsTrigger value="bancoWauja" className="text-xs py-1.5">
+              <TabsTrigger value="bancoMehinakuPerfurado" className="flex-1 text-xs py-1.5 min-w-[70px]">
+                Perfurado
+              </TabsTrigger>
+              <TabsTrigger value="bancoWauja" className="flex-1 text-xs py-1.5 min-w-[70px]">
                 Wauja
               </TabsTrigger>
             </TabsList>
@@ -816,6 +818,108 @@ export function Sidebar() {
                       />
                     ))}
                   </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Raio das Colunas (Parafusos)</Label>
+                  <Slider
+                    value={[params.bancoMehinakuColumnRadius]}
+                    onValueChange={([value]) => setParams({ bancoMehinakuColumnRadius: value })}
+                    min={0.006}
+                    max={0.025}
+                    step={0.001}
+                  />
+                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuColumnRadius * 1000).toFixed(1)} mm</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Parâmetros do Banco Mehinaku Perfurado */}
+          {params.activeTab === "bancoMehinakuPerfurado" && (
+            <div className="space-y-4">
+              <h2 className="text-sm font-semibold text-foreground">
+                Banco Mehinaku - Chapa Perfurada
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">Largura do Tampo</Label>
+                  <Slider
+                    value={[params.bancoMehinakuPerfuradoTopWidth]}
+                    onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoTopWidth: value })}
+                    min={0.35}
+                    max={0.8}
+                    step={0.01}
+                  />
+                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoTopWidth * 100).toFixed(0)} cm</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Altura das Pernas</Label>
+                  <Slider
+                    value={[params.bancoMehinakuPerfuradoLegHeight]}
+                    onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoLegHeight: value })}
+                    min={0.1}
+                    max={0.35}
+                    step={0.01}
+                  />
+                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoLegHeight * 100).toFixed(0)} cm</span>
+                </div>
+                
+                {/* Tamanho dos furos removido do painel — controlado internamente */}
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Espessura da Chapa</Label>
+                  <Slider
+                    value={[params.bancoMehinakuPerfuradoPlateThickness]}
+                    onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoPlateThickness: value })}
+                    min={0.001}
+                    max={0.008}
+                    step={0.0005}
+                  />
+                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoPlateThickness * 1000).toFixed(1)} mm</span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Cor da Chapa (Metal)</Label>
+                  <div className="flex gap-2">
+                    {["#424242", "#616161", "#757575", "#37474F", "#263238", "#546E7A"].map((color) => (
+                      <button
+                        key={color}
+                        className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${
+                          params.bancoMehinakuPerfuradoColor === color ? "border-primary ring-2 ring-primary/50" : "border-transparent"
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setParams({ bancoMehinakuPerfuradoColor: color })}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Padrao dos Furos</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={params.bancoMehinakuPerfuradoHolePattern === "clover" ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setParams({ bancoMehinakuPerfuradoHolePattern: "clover" })}
+                    >
+                      Trevo
+                    </Button>
+                    <Button
+                      variant={params.bancoMehinakuPerfuradoHolePattern === "cross" ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setParams({ bancoMehinakuPerfuradoHolePattern: "cross" })}
+                    >
+                      Cruz
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Trevo: padrao floral. Cruz: padrao geometrico.
+                  </p>
                 </div>
               </div>
             </div>

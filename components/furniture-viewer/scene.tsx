@@ -6,8 +6,9 @@ import { Chair } from "./chair";
 import { Table } from "./table";
 import { RoundTable } from "./round-table";
 import { BancoMehinaku } from "./banco-mehinaku";
+import { BancoMehinakuPerfurado } from "./banco-mehinaku-perfurado";
 import { BancoWauja } from "./banco-wauja";
-import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoWauja } from "./segmented-furniture";
+import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoMehinakuPerfurado, SegmentedBancoWauja } from "./segmented-furniture";
 import { RecordingController } from "./recording-controller";
 import { ImageCaptureBridge } from "./image-capture-bridge";
 import { Suspense } from "react";
@@ -46,15 +47,18 @@ function SceneContent() {
         castShadow
       />
       
-      {/* Furniture — renders only the active tab */}
-      {/* Solid mode uses standard mesh components; all other modes use segmented waveform components */}
+      {/* Furniture — render original (non-segmented) models when textureMode is 'solid'.
+          For other texture modes render the segmented/creative components. */}
       <group ref={sceneRef}>
         {params.textureMode === "solid" ? (
           <>
-            {params.activeTab === "table" && <Table position={[0, 0, 0]} />}
-            {params.activeTab === "chair" && <Chair position={[0, 0, 0]} />}
+            {params.activeTab === "table" && <SegmentedTable position={[0, 0, 0]} />}
+            {params.activeTab === "chair" && <SegmentedChair position={[0, 0, 0]} />}
             {params.activeTab === "roundTable" && <RoundTable position={[0, 0, 0]} />}
-            {params.activeTab === "bancoMehinaku" && <BancoMehinaku position={[0, 0, 0]} />}
+            {/* For benches we keep the segmented base but render it in a 'solid' state so
+                the same perforated plates and screw columns are used as the base. */}
+            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <BancoWauja position={[0, 0, 0]} />}
           </>
         ) : (
@@ -63,6 +67,7 @@ function SceneContent() {
             {params.activeTab === "chair" && <SegmentedChair position={[0, 0, 0]} />}
             {params.activeTab === "roundTable" && <SegmentedRoundTable position={[0, 0, 0]} />}
             {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <SegmentedBancoWauja position={[0, 0, 0]} />}
           </>
         )}

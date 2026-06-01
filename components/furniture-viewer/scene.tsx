@@ -52,23 +52,23 @@ function SceneContent() {
       <group ref={sceneRef}>
         {params.textureMode === "solid" ? (
           <>
-            {params.activeTab === "table" && <SegmentedTable position={[0, 0, 0]} />}
-            {params.activeTab === "chair" && <SegmentedChair position={[0, 0, 0]} />}
-            {params.activeTab === "roundTable" && <RoundTable position={[0, 0, 0]} />}
+            {params.activeTab === "table" && <SegmentedTable key={`table-solid-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "chair" && <SegmentedChair key={`chair-solid-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "roundTable" && <RoundTable key={`roundTable-solid-${params.textureMode}`} position={[0, 0, 0]} />}
             {/* For benches we keep the segmented base but render it in a 'solid' state so
                 the same perforated plates and screw columns are used as the base. */}
-            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku position={[0, 0, 0]} />}
-            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado position={[0, 0, 0]} />}
-            {params.activeTab === "bancoWauja" && <BancoWauja position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku key={`bancoMehinaku-solid-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-solid-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoWauja" && <BancoWauja key={`bancoWauja-solid-${params.textureMode}`} position={[0, 0, 0]} />}
           </>
         ) : (
           <>
-            {params.activeTab === "table" && <SegmentedTable position={[0, 0, 0]} />}
-            {params.activeTab === "chair" && <SegmentedChair position={[0, 0, 0]} />}
-            {params.activeTab === "roundTable" && <SegmentedRoundTable position={[0, 0, 0]} />}
-            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku position={[0, 0, 0]} />}
-            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado position={[0, 0, 0]} />}
-            {params.activeTab === "bancoWauja" && <SegmentedBancoWauja position={[0, 0, 0]} />}
+            {params.activeTab === "table" && <SegmentedTable key={`table-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "chair" && <SegmentedChair key={`chair-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "roundTable" && <SegmentedRoundTable key={`roundTable-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku key={`bancoMehinaku-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoWauja" && <SegmentedBancoWauja key={`bancoWauja-${params.textureMode}`} position={[0, 0, 0]} />}
           </>
         )}
       </group>

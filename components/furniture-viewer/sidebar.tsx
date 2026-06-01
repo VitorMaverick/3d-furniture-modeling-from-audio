@@ -901,6 +901,14 @@ export function Sidebar() {
                   <Label className="text-sm">Padrao dos Furos</Label>
                   <div className="flex gap-2">
                     <Button
+                      variant={params.bancoMehinakuPerfuradoHolePattern === "square" ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setParams({ bancoMehinakuPerfuradoHolePattern: "square" })}
+                    >
+                      Quadrado
+                    </Button>
+                    <Button
                       variant={params.bancoMehinakuPerfuradoHolePattern === "clover" ? "default" : "outline"}
                       size="sm"
                       className="flex-1"
@@ -918,7 +926,7 @@ export function Sidebar() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Trevo: padrao floral. Cruz: padrao geometrico.
+                    Quadrado: chapa de ferro perfurada. Trevo: padrao floral. Cruz: padrao geometrico.
                   </p>
                 </div>
               </div>

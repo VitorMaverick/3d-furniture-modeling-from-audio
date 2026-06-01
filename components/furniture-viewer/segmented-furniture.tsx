@@ -237,23 +237,13 @@ function getInitialDisplacement(
       break;
   }
 
-  // Deslocamento radial baseado na intensidade
-  const displacement = (intensity - 0.5) * intensityMultiplier * 0.15;
-  
-  // Calcula direcao radial do centro
-  const px = basePosition[0];
-  const pz = basePosition[2];
-  const dist = Math.sqrt(px * px + pz * pz);
-  
-  if (dist > 0.01) {
-    return {
-      dx: (px / dist) * displacement,
-      dz: (pz / dist) * displacement,
-      scale: scaleModifier
-    };
-  }
-  
-  return { dx: 0, dz: 0, scale: scaleModifier };
+  // Deslocamento radial removido - apenas variacao de cor e escala
+  // Segmentos ficam na posicao base para evitar formas flutuantes
+  return {
+    dx: 0,
+    dz: 0,
+    scale: scaleModifier
+  };
 }
 
 // Funcao legada para compatibilidade

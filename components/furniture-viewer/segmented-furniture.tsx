@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useFurniture } from "@/lib/furniture-context";
 import type { AIWaveParams } from "@/lib/furniture-context";
@@ -163,7 +163,8 @@ function getInitialDisplacement(
   let intensity = 0.5;
   let scaleModifier = 1;
   
-  switch (textureMode) {
+  const effectiveTextureMode = textureMode === 'solid' ? 'waveform' : textureMode;
+  switch (effectiveTextureMode) {
     case "waveform": {
       const waveAmp = getWaveformIntensity(normalizedLayer, 0);
       const angularWave = Math.sin(normalizedSeg * Math.PI * 8) * 0.4;
@@ -225,6 +226,7 @@ function getInitialDisplacement(
     }
 
     case "solid":
+      // handled by effectiveTextureMode mapping above; keep fallback
       intensity = 0.5;
       scaleModifier = 1;
       break;
@@ -467,13 +469,27 @@ function Segment({
   const meshRef = useRef<THREE.Mesh>(null);
   const { params } = useFurniture();
   
-  // Calcula a posicao base (centro do raio, sem deslocamento de onda)
+  // Calcula a posicao base (centro do raio, sem deslocamento animado)
+  // Use a deslocamento inicial baseado no modo de textura atual (mantem formato criativo em 'solid')
+  const initialScaleModifierRef = useRef<number>(1);
   const basePosition = useRef<[number, number, number]>((() => {
     const px = position[0];
     const pz = position[2];
     const dist = Math.sqrt(px * px + pz * pz);
     if (dist > 0.01) {
-      const { dx, dz } = getInitialWaveDisplacement(layerIndex, totalLayers, position, 0.8);
+      // Use the furniture params textureMode and aiWaveParams to compute the initial displacement
+      const { dx, dz, scale: scaleModifier } = getInitialDisplacement(
+        layerIndex,
+        totalLayers,
+        frequencyIndex,
+        totalLayers,
+        position,
+        // read current texture mode from params so static modes retain creative layout
+        params.textureMode || "waveform",
+        0.8,
+        params.aiWaveParams
+      );
+      initialScaleModifierRef.current = scaleModifier || 1;
       return [position[0] - dx, position[1], position[2] - dz] as [number, number, number];
     }
     return position;
@@ -481,16 +497,29 @@ function Segment({
   
   useFrame((state) => {
     if (!meshRef.current) return;
-    
     // Animacao apenas no modo waveform; outros modos resetam para a posicao nominal
-    if (params.animationPaused || params.textureMode !== "waveform") {
-      meshRef.current.position.set(position[0], position[1], position[2]);
+    if (params.textureMode !== "waveform") {
+      // For non-waveform modes (including 'solid'), keep the creative initial displacement
+      // computed at mount time and apply the initial scale modifier so the object
+      // preserves its designed shape but without per-frame animation.
+      const base = basePosition.current;
+      meshRef.current.position.set(base[0], base[1], base[2]);
       meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
-      meshRef.current.scale.set(scale[0], scale[1], scale[2]);
+      const scaleMod = initialScaleModifierRef.current || 1;
+      meshRef.current.scale.set(scale[0] * scaleMod, scale[1], scale[2] * scaleMod);
       return;
     }
 
-    const time = state.clock.elapsedTime * params.animationSpeed;
+    // Freeze time when paused: remember the snapshot time and reuse it
+    const localPauseRef = (meshRef as any).__pauseTimeRef ||= { current: null as number | null };
+    let time: number;
+    if (params.animationPaused) {
+      if (localPauseRef.current == null) localPauseRef.current = state.clock.elapsedTime * params.animationSpeed;
+      time = localPauseRef.current;
+    } else {
+      localPauseRef.current = null;
+      time = state.clock.elapsedTime * params.animationSpeed;
+    }
     const normalizedLayer = layerIndex / Math.max(totalLayers - 1, 1);
     const normalizedSeg = frequencyIndex / Math.max(totalLayers, 1);
 
@@ -860,6 +889,9 @@ function generateFlatPanelSegmentsWithWires(
   // Amplitude maxima do deslocamento
   const maxDisplacement = 0.04;
   
+  // treat 'solid' as a static 'waveform' pattern so creative layout is preserved
+  const effectiveTextureMode = textureMode === 'solid' ? 'waveform' : textureMode;
+
   for (let layer = 0; layer < layers; layer++) {
     const normalizedLayer = layer / (layers - 1 || 1);
     const y = position[1] - height / 2 + segHeight / 2 + layer * segHeight;
@@ -880,7 +912,7 @@ function generateFlatPanelSegmentsWithWires(
       let zDisplacement = 0;
       let scaleModifier = 1;
 
-      switch (textureMode) {
+      switch (effectiveTextureMode) {
         case "waveform": {
           // Forma de onda: cada coluna e uma amostra no tempo, altura e a amplitude
           // Simula ondas sonoras com picos e vales variando ao longo da largura
@@ -1073,7 +1105,10 @@ function generateLateralFlatPanelSegmentsWithWires(
   
   // Amplitude maxima do deslocamento
   const maxDisplacement = 0.04;
-  
+
+  // treat 'solid' as a static 'waveform' pattern so creative layout is preserved
+  const effectiveTextureMode = textureMode === 'solid' ? 'waveform' : textureMode;
+
   for (let layer = 0; layer < layers; layer++) {
     const normalizedLayer = layer / (layers - 1 || 1);
     const y = position[1] - height / 2 + segHeight / 2 + layer * segHeight;
@@ -1094,7 +1129,7 @@ function generateLateralFlatPanelSegmentsWithWires(
       let xDisplacement = 0;
       let scaleModifier = 1;
 
-      switch (textureMode) {
+      switch (effectiveTextureMode) {
         case "waveform": {
           // Forma de onda: cada coluna e uma amostra no tempo, altura e a amplitude
           const timePhase = normalizedSeg * Math.PI * 8;
@@ -1296,7 +1331,22 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
   const seatY = chairLegHeight + chairSeatHeight / 2;
   const totalHeight = chairLegHeight + chairSeatHeight + chairBackHeight;
   const segmentHeight = 0.012;
-  
+
+  // clock snapshot to synchronize pause for this component
+  const clockRef = useRef(0);
+  useFrame((state) => {
+    clockRef.current = state.clock.elapsedTime * params.animationSpeed;
+  });
+
+  const [pausedSnapshot, setPausedSnapshot] = useState<number | null>(null);
+  useEffect(() => {
+    if (params.animationPaused) {
+      setPausedSnapshot(clockRef.current);
+    } else {
+      setPausedSnapshot(null);
+    }
+  }, [params.animationPaused]);
+
   // Base conica para as pernas (como na mesa redonda)
   const baseTopRadius = Math.min(chairSeatWidth, chairSeatDepth) * 0.35;
   const baseBottomRadius = Math.min(chairSeatWidth, chairSeatDepth) * 0.5;
@@ -1373,22 +1423,22 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       />
       
       {/* Segmentos da base */}
-      {baseSegments.map((seg) => (
+      {textureMode !== 'solid' && baseSegments.map((seg) => (
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Segmentos do encosto */}
-      {backSegments.map((seg) => (
+      {textureMode !== 'solid' && backSegments.map((seg) => (
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios da base */}
-      {baseWires.map((wire) => (
+      {textureMode !== 'solid' && baseWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
       {/* Fios do encosto */}
-      {backWires.map((wire) => (
+      {textureMode !== 'solid' && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
     </group>
@@ -1458,12 +1508,12 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
       />
       
       {/* Segmentos */}
-      {segments.map((seg) => (
+      {textureMode !== 'solid' && segments.map((seg) => (
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios */}
-      {wires.map((wire) => (
+      {textureMode !== 'solid' && wires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
     </group>
@@ -1488,7 +1538,22 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
 
   const totalHeight = roundTableBaseHeight + roundTableTopHeight;
   const segmentHeight = 0.015;
-  
+  // clock snapshot to synchronize pause
+  const clockRef = useRef(0);
+  useFrame((state) => {
+    clockRef.current = state.clock.elapsedTime * params.animationSpeed;
+  });
+
+  const [pausedSnapshot, setPausedSnapshot] = useState<number | null>(null);
+  useEffect(() => {
+    if (params.animationPaused) {
+      setPausedSnapshot(clockRef.current);
+    } else {
+      setPausedSnapshot(null);
+    }
+  }, [params.animationPaused]);
+
+  // Create segments and wires for the round table
   const { segments, wires } = useMemo(() => {
     return generateCylinderSegmentsWithWires(
       roundTableBaseTopRadius,
@@ -1667,22 +1732,22 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       </group>
       
       {/* Segmentos - semicirculo frontal */}
-      {frontSegments.map((seg) => (
+      {textureMode !== 'solid' && frontSegments.map((seg) => (
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Segmentos - semicirculo traseiro */}
-      {backSegments.map((seg) => (
+      {textureMode !== 'solid' && backSegments.map((seg) => (
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
       {/* Fios - frontal */}
-      {frontWires.map((wire) => (
+      {textureMode !== 'solid' && frontWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
       {/* Fios - traseiro */}
-      {backWires.map((wire) => (
+      {textureMode !== 'solid' && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
@@ -1752,14 +1817,58 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     waveIntensity,
     fftIntensity,
     spectrogramIntensity,
+    segmentsPerLayer,
     aiWaveParams,
   } = params;
 
   const topY = bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight / 2;
   const panelWidth = bancoMehinakuPerfuradoTopWidth * 0.7;
   const cornerRadius = bancoMehinakuPerfuradoTopDepth * 0.4;
+  const segmentHeight = 0.012;
 
-  // Geometria do tampo com pontas curvas (madeira)
+  // computeIntensity reused by plate generation and by rendering to keep holes and
+  // segments visually coherent
+  const computeIntensity = (normalizedX: number, normalizedY: number, colIdx: number, colsCount: number, plateH: number, time: number = 0) => {
+    const effectiveMode = textureMode === 'solid' ? 'waveform' : textureMode;
+    switch (effectiveMode) {
+      case "waveform": {
+        const waveBase = getWaveformIntensity(normalizedX, time);
+        const verticalWave = Math.sin(normalizedY * Math.PI * 4) * 0.2;
+        return Math.max(0, Math.min(1, (waveBase + verticalWave) * waveIntensity));
+      }
+      case "fft": {
+        const fftMag = getFFTIntensity(normalizedX);
+        const isInFFTBar = normalizedY < fftMag;
+        return isInFFTBar ? fftMag * fftIntensity : 0.1;
+      }
+      case "spectrogram": {
+        const stftVal = getSTFTIntensity(normalizedY, colIdx, colsCount);
+        return stftVal * spectrogramIntensity;
+      }
+      case "combined": {
+        const waveInt = getWaveformIntensity(normalizedX, 0);
+        const fftInt = getFFTIntensity(normalizedX);
+        const stftInt = getSTFTIntensity(normalizedY, colIdx, colsCount);
+        const waveComponent = Math.sin(normalizedX * Math.PI * 6) * waveInt;
+        const fftComponent = fftInt * (1 - normalizedY * 0.5);
+        const stftComponent = stftInt * 0.5;
+        const combinedIntensity = (waveComponent * 0.3 + fftComponent * 0.4 + stftComponent * 0.3);
+        return Math.max(0, Math.min(1, combinedIntensity));
+      }
+        case "ai-image": {
+        if (aiWaveParams) {
+          const aiResult = getAIWaveIntensity(normalizedY, normalizedX, aiWaveParams, plateH);
+          return aiResult.intensity;
+        }
+        const fallbackWave = getWaveformIntensity(normalizedX, time);
+        return Math.max(0, Math.min(1, fallbackWave * waveIntensity));
+      }
+      default:
+        return 0.5;
+    }
+  };
+
+  // Mantém a geometria do tampo de madeira (visual)
   const topGeometry = useMemo(() => {
     const shape = new THREE.Shape();
     const w = bancoMehinakuPerfuradoTopWidth / 2;
@@ -1787,182 +1896,237 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     return new THREE.ExtrudeGeometry(shape, extrudeSettings);
   }, [bancoMehinakuPerfuradoTopWidth, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, cornerRadius]);
 
-  // Gera a geometria da chapa perfurada com padrão baseado no modo de textura
-  const { frontPlateGeometry, backPlateGeometry, framePositions } = useMemo(() => {
-    const holeSize = bancoMehinakuPerfuradoHoleSize;
-    const thickness = bancoMehinakuPerfuradoPlateThickness;
-    const plateHeight = bancoMehinakuPerfuradoLegHeight;
-    const useClover = bancoMehinakuPerfuradoHolePattern === "clover";
-    
-    // Padrão mais denso
-    const spacing = holeSize * 1.8;
-    const cols = Math.floor(panelWidth / spacing);
-    const rows = Math.floor(plateHeight / spacing);
-    
-    const plateShape = new THREE.Shape();
-    plateShape.moveTo(-panelWidth / 2, 0);
-    plateShape.lineTo(panelWidth / 2, 0);
-    plateShape.lineTo(panelWidth / 2, plateHeight);
-    plateShape.lineTo(-panelWidth / 2, plateHeight);
-    plateShape.lineTo(-panelWidth / 2, 0);
-    
-    const colSpacing = panelWidth / (cols + 1);
-    const rowSpacing = plateHeight / (rows + 1);
-    
-    // Função para obter intensidade baseada no modo de textura
-    const getIntensityForMode = (normalizedX: number, normalizedY: number, col: number, row: number): number => {
-      // Caso contrário, usa o modo de textura selecionado
-      switch (textureMode) {
-        case "solid":
-          // Sólido: sem variação, todos os furos iguais
-          return 0.5;
-          
-        case "waveform":
-          // Waveform: intensidade varia horizontalmente (tempo) com ondulação vertical
-          const waveBase = getWaveformIntensity(normalizedX, 0);
-          const verticalWave = Math.sin(normalizedY * Math.PI * 4) * 0.2;
-          return Math.max(0, Math.min(1, (waveBase + verticalWave) * waveIntensity));
-          
-        case "fft":
-          // FFT: barras verticais com altura baseada na frequência
-          const fftMag = getFFTIntensity(normalizedX);
-          // A intensidade diminui conforme sobe (row maior = mais alto)
-          const isInFFTBar = normalizedY < fftMag;
-          return isInFFTBar ? fftMag * fftIntensity : 0.1;
-          
-        case "spectrogram":
-          // STFT/Spectrogram: grade 2D de intensidades
-          const stftVal = getSTFTIntensity(normalizedY, col, cols);
-          return stftVal * spectrogramIntensity;
-          
-        case "combined":
-          // Combinado: mistura de waveform, FFT e spectrogram
-          const waveInt = getWaveformIntensity(normalizedX, 0);
-          const fftInt = getFFTIntensity(normalizedX);
-          const stftInt = getSTFTIntensity(normalizedY, col, cols);
-          
-          const waveComponent = Math.sin(normalizedX * Math.PI * 6) * waveInt;
-          const fftComponent = fftInt * (1 - normalizedY * 0.5);
-          const stftComponent = stftInt * 0.5;
-          
-          const combinedIntensity = (waveComponent * 0.3 + fftComponent * 0.4 + stftComponent * 0.3);
-          return Math.max(0, Math.min(1, combinedIntensity));
-          
-        case "ai-image":
-          // Se temos parâmetros de IA, usa eles
-          if (aiWaveParams) {
-            const aiResult = getAIWaveIntensity(normalizedY, normalizedX, aiWaveParams, plateHeight);
-            return aiResult.intensity;
-          }
-          // Fallback para waveform se não tiver parâmetros de IA
-          const fallbackWave = getWaveformIntensity(normalizedX, 0);
-          return Math.max(0, Math.min(1, fallbackWave * waveIntensity));
-          
-        default:
-          return 0.5;
-      }
-    };
-    
-    for (let col = 0; col < cols; col++) {
-      for (let row = 0; row < rows; row++) {
-        const x = -panelWidth / 2 + colSpacing * (col + 1);
-        const y = rowSpacing * (row + 1);
-        
-        const normalizedX = col / cols;
-        const normalizedY = row / rows;
-        
-        // Obtém intensidade baseada no modo de textura
-        const intensity = getIntensityForMode(normalizedX, normalizedY, col, row);
-        
-        // Tamanho do furo inversamente proporcional à intensidade
-        // Alta intensidade (som forte) = furos menores (mais material)
-        // Baixa intensidade (silêncio) = furos maiores (menos material)
-        const sizeMultiplier = 0.4 + (1 - intensity) * 0.6; // Range: 0.4 a 1.0
-        const adjustedSize = holeSize * sizeMultiplier;
-        
-        // Cria furo com padrão selecionado
-        const holePath = new THREE.Path();
-        
-        if (useClover) {
-          // Padrão trevo/flor de 4 pétalas
-          const petalRadius = adjustedSize * 0.45;
-          const numPetals = 4;
-          const points: { px: number; py: number }[] = [];
-          const segments = 32;
-          
-          for (let i = 0; i <= segments; i++) {
-            const angle = (i / segments) * Math.PI * 2;
-            const r = petalRadius * (0.5 + 0.5 * Math.abs(Math.cos(numPetals * angle / 2)));
-            points.push({
-              px: x + Math.cos(angle) * r,
-              py: y + Math.sin(angle) * r
-            });
-          }
-          
-          holePath.moveTo(points[0].px, points[0].py);
-          for (let i = 1; i < points.length; i++) {
-            holePath.lineTo(points[i].px, points[i].py);
-          }
-        } else {
-          // Padrão cruz com cantos arredondados
-          const s = adjustedSize / 2;
-          const armWidth = s * 0.35;
-          const cr = armWidth * 0.3;
-          
-          holePath.moveTo(x - armWidth + cr, y - s);
-          holePath.lineTo(x + armWidth - cr, y - s);
-          holePath.quadraticCurveTo(x + armWidth, y - s, x + armWidth, y - s + cr);
-          holePath.lineTo(x + armWidth, y - armWidth + cr);
-          holePath.quadraticCurveTo(x + armWidth, y - armWidth, x + armWidth + cr, y - armWidth);
-          holePath.lineTo(x + s - cr, y - armWidth);
-          holePath.quadraticCurveTo(x + s, y - armWidth, x + s, y - armWidth + cr);
-          holePath.lineTo(x + s, y + armWidth - cr);
-          holePath.quadraticCurveTo(x + s, y + armWidth, x + s - cr, y + armWidth);
-          holePath.lineTo(x + armWidth + cr, y + armWidth);
-          holePath.quadraticCurveTo(x + armWidth, y + armWidth, x + armWidth, y + armWidth + cr);
-          holePath.lineTo(x + armWidth, y + s - cr);
-          holePath.quadraticCurveTo(x + armWidth, y + s, x + armWidth - cr, y + s);
-          holePath.lineTo(x - armWidth + cr, y + s);
-          holePath.quadraticCurveTo(x - armWidth, y + s, x - armWidth, y + s - cr);
-          holePath.lineTo(x - armWidth, y + armWidth + cr);
-          holePath.quadraticCurveTo(x - armWidth, y + armWidth, x - armWidth - cr, y + armWidth);
-          holePath.lineTo(x - s + cr, y + armWidth);
-          holePath.quadraticCurveTo(x - s, y + armWidth, x - s, y + armWidth - cr);
-          holePath.lineTo(x - s, y - armWidth + cr);
-          holePath.quadraticCurveTo(x - s, y - armWidth, x - s + cr, y - armWidth);
-          holePath.lineTo(x - armWidth - cr, y - armWidth);
-          holePath.quadraticCurveTo(x - armWidth, y - armWidth, x - armWidth, y - armWidth - cr);
-          holePath.lineTo(x - armWidth, y - s + cr);
-          holePath.quadraticCurveTo(x - armWidth, y - s, x - armWidth + cr, y - s);
-        }
-        
-        plateShape.holes.push(holePath);
-      }
-    }
-    
-    const extrudeSettings = {
-      steps: 1,
-      depth: thickness,
-      bevelEnabled: false,
-    };
-    
-    const frontGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
-    const backGeo = new THREE.ExtrudeGeometry(plateShape, extrudeSettings);
-    
+  // Gera segmentos e fios para a chapa perfurada (front + back) — antes só era desenhada a ExtrudeGeometry
+  const { frontSegments, frontWires, backSegments, backWires, framePositions } = useMemo(() => {
+    const segmentHeight = 0.012;
+    const cols = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+
+    const { segments: frontSegs, wires: frontW } = generateFlatPanelSegmentsWithWires(
+      panelWidth,
+      bancoMehinakuPerfuradoLegHeight,
+      [0, bancoMehinakuPerfuradoLegHeight / 2, bancoMehinakuPerfuradoTopDepth / 2 - 0.02],
+      segmentHeight,
+      0,
+      bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight,
+      Math.floor(cols),
+      bancoMehinakuPerfuradoColor,
+      "front",
+      textureMode,
+      aiWaveParams
+    );
+
+    const { segments: backSegs, wires: backW } = generateFlatPanelSegmentsWithWires(
+      panelWidth,
+      bancoMehinakuPerfuradoLegHeight,
+      [0, bancoMehinakuPerfuradoLegHeight / 2, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02],
+      segmentHeight,
+      0,
+      bancoMehinakuPerfuradoLegHeight + bancoMehinakuPerfuradoTopHeight,
+      Math.floor(cols),
+      bancoMehinakuPerfuradoColor,
+      "back",
+      textureMode,
+      aiWaveParams
+    );
+
     const frames = [
       { x: -panelWidth / 2 - 0.012, width: 0.024 },
       { x: panelWidth / 2 + 0.012, width: 0.024 },
     ];
-    
-    return { 
-      frontPlateGeometry: frontGeo, 
-      backPlateGeometry: backGeo,
+
+    return {
+      frontSegments: frontSegs,
+      frontWires: frontW,
+      backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
+      backWires: backW.map(w => ({ ...w, key: `back-${w.key}` })),
       framePositions: frames
     };
-  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoHoleSize, bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoHolePattern, textureMode, waveIntensity, fftIntensity, spectrogramIntensity, aiWaveParams]);
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, bancoMehinakuPerfuradoColor, segmentsPerLayer, textureMode, aiWaveParams]);
 
   const woodColor = "#5D4037";
   const metalColor = bancoMehinakuPerfuradoColor;
+
+  // Instead of building complex extruded geometry for holes (expensive and static),
+  // generate an alpha-mask texture on a canvas and apply it as an alphaMap to a
+  // simple plane. The mask is updated while animation runs so holes follow the
+  // same audio-driven pattern as the segments and correctly reflect pause state.
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskTextureRef = useRef<THREE.CanvasTexture | null>(null);
+  const maskConfigRef = useRef<{ dpr: number; logicalWidth: number; logicalHeight: number; cols: number; rows: number } | null>(null);
+
+  // local clock + paused snapshot to safely scope the pause time used by mask and segments
+  const clockRef = useRef(0);
+  useFrame((state) => {
+    clockRef.current = state.clock.elapsedTime * params.animationSpeed;
+  });
+
+  const [pausedSnapshot, setPausedSnapshot] = useState<number | null>(null);
+  useEffect(() => {
+    if (params.animationPaused) {
+      setPausedSnapshot(clockRef.current);
+    } else {
+      setPausedSnapshot(null);
+    }
+  }, [params.animationPaused]);
+
+  useEffect(() => {
+    // create canvas and texture once (with devicePixelRatio-aware sizing)
+    const cols = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+    const rows = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));
+
+    const dpr = typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio || 1) : 1;
+    const baseCellPx = 48; // logical px per cell for higher default resolution
+    const logicalWidth = Math.min(4096, Math.max(512, cols * baseCellPx));
+    const logicalHeight = Math.min(4096, Math.max(512, rows * baseCellPx));
+
+    const canvas = document.createElement('canvas');
+    // physical buffer
+    canvas.width = Math.round(logicalWidth * dpr);
+    canvas.height = Math.round(logicalHeight * dpr);
+    // css size (logical)
+    canvas.style.width = `${logicalWidth}px`;
+    canvas.style.height = `${logicalHeight}px`;
+
+    // store refs
+    maskCanvasRef.current = canvas;
+    maskConfigRef.current = { dpr, logicalWidth, logicalHeight, cols, rows };
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.flipY = false;
+    tex.needsUpdate = true;
+    maskTextureRef.current = tex;
+
+    // ensure context transform is set before first draw
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // initialize to opaque
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+      tex.needsUpdate = true;
+    }
+
+    return () => {
+      if (maskTextureRef.current) {
+        maskTextureRef.current.dispose();
+        maskTextureRef.current = null;
+      }
+      maskCanvasRef.current = null;
+      maskConfigRef.current = null;
+    };
+    // recreate if grid size changes
+  }, [segmentsPerLayer, bancoMehinakuPerfuradoLegHeight, segmentHeight, params.animationSpeed]);
+
+  // Update mask drawing function
+  const updateMask = (time: number) => {
+    const canvas = maskCanvasRef.current;
+    const tex = maskTextureRef.current;
+    const cfg = maskConfigRef.current;
+    if (!canvas || !tex || !cfg) return;
+
+    const { dpr, logicalWidth, logicalHeight, cols, rows } = cfg;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // drawing coordinates are in logical pixels thanks to ctx.setTransform(dpr,...)
+    const lw = logicalWidth;
+    const lh = logicalHeight;
+
+    // clear to opaque (metal)
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, lw, lh);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, lw, lh);
+
+    const colW = lw / cols;
+    const rowH = lh / rows;
+
+    const holeBase = bancoMehinakuPerfuradoHoleSize || 0.02;
+
+    // helper shapes for different hole patterns (logical px)
+    const drawClover = (x: number, y: number, r: number) => {
+      const petalR = Math.max(1, Math.floor(r * 0.65));
+      for (let i = 0; i < 4; i++) {
+        const ang = i * (Math.PI / 2);
+        const px = Math.round(x + Math.cos(ang) * r * 0.45);
+        const py = Math.round(y + Math.sin(ang) * r * 0.45);
+        ctx.beginPath();
+        ctx.arc(px, py, petalR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // small center cut for aesthetic
+      ctx.beginPath();
+      ctx.arc(Math.round(x), Math.round(y), Math.max(1, Math.floor(r * 0.28)), 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const drawCross = (x: number, y: number, r: number) => {
+      const armW = Math.max(1, Math.floor(r * 0.35));
+      const armL = Math.max(1, Math.floor(r * 0.9));
+      // vertical bar
+      ctx.fillRect(Math.round(x - armW / 2), Math.round(y - armL / 2), armW, armL);
+      // horizontal bar
+      ctx.fillRect(Math.round(x - armL / 2), Math.round(y - armW / 2), armL, armW);
+    };
+
+    const pattern = bancoMehinakuPerfuradoHolePattern || 'round';
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let col = 0; col < cols; col++) {
+      for (let row = 0; row < rows; row++) {
+        const normalizedX = col / cols;
+        const normalizedY = row / rows;
+        // In 'solid' mode we want a neutral static hole size (no audio-driven variation).
+        // Use a fixed intensity so holes equal the base size. For other modes use computeIntensity.
+        const intensity = textureMode === 'solid'
+          ? 0.5
+          : computeIntensity(normalizedX, normalizedY, col, cols, bancoMehinakuPerfuradoLegHeight, time);
+        // size mapping (same mapping but using logical pixel conversion)
+        const smallMultiplier = 0.2;
+        const largeMultiplier = 1.4;
+        let sizeMultiplier = smallMultiplier + (1 - intensity) * (largeMultiplier - smallMultiplier);
+        sizeMultiplier = Math.max(0.12, Math.min(2.0, sizeMultiplier));
+        const adjustedSize = holeBase * sizeMultiplier;
+
+        const cx = (col + 0.5) * colW;
+        const cy = (row + 0.5) * rowH;
+
+        // pixels per world unit: choose X axis mapping
+        const pxPerUnit = Math.max(lw / panelWidth, lh / bancoMehinakuPerfuradoLegHeight);
+        const radiusPxRaw = Math.max(1, Math.floor((adjustedSize * pxPerUnit) / 2));
+        // cap radius so holes cannot exceed cell bounds (prevents full-panel erasure)
+        const maxRadiusAllowed = Math.max(1, Math.floor(Math.min(colW, rowH) * 0.45));
+        const radiusPx = Math.min(radiusPxRaw, maxRadiusAllowed);
+
+        // draw chosen hole shape
+        if (pattern === 'clover') {
+          drawClover(cx, cy, radiusPx);
+        } else if (pattern === 'cross') {
+          drawCross(cx, cy, radiusPx);
+        } else {
+          ctx.beginPath();
+          ctx.arc(Math.round(cx), Math.round(cy), radiusPx, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+    tex.needsUpdate = true;
+  };
+
+  // update mask during animation frames (but not when paused) — useFrame below
+  useFrame((state) => {
+    if (!maskCanvasRef.current || !maskTextureRef.current) return;
+
+    // choose frozen time when paused, otherwise live clock
+    const liveTime = state.clock.elapsedTime * params.animationSpeed;
+    const timeBase = params.animationPaused && pausedSnapshot != null ? pausedSnapshot : liveTime;
+    // In 'solid' mode we want a static (non-animated) mask — use time = 0 for deterministic static pattern
+    const time = params.textureMode === 'solid' ? 0 : timeBase;
+    updateMask(time);
+  });
 
   return (
     <group position={position}>
@@ -1973,73 +2137,120 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         </mesh>
       </group>
 
-      {/* Chapa perfurada frontal */}
-      <group 
-        position={[0, 0, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]} 
-        rotation={[0, 0, 0]}
-      >
-        <mesh geometry={frontPlateGeometry} castShadow>
-          <meshStandardMaterial 
-            color={metalColor} 
-            metalness={0.75} 
+      {/* Chapa perfurada frontal (alpha-masked plane) - positioned at mid-height of leg panel */}
+      <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]}>
+        <mesh rotation={[0, 0, 0]} castShadow>
+          <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
+          <meshStandardMaterial
+            color={metalColor}
+            metalness={0.75}
             roughness={0.25}
             side={THREE.DoubleSide}
+            transparent={true}
+            alphaMap={maskTextureRef.current || undefined}
+            alphaTest={0.01}
           />
-        </mesh>
-        
-        {framePositions.map((frame, i) => (
-          <mesh key={`front-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
-            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
-            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
-          </mesh>
-        ))}
-        
-        {/* Barra horizontal superior */}
-        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
-          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
-          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
-        </mesh>
-        
-        {/* Barra horizontal inferior */}
-        <mesh position={[0, 0.008, 0.003]}>
-          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
-          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
         </mesh>
       </group>
 
-      {/* Chapa perfurada traseira */}
-      <group 
-        position={[0, 0, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} 
-        rotation={[0, Math.PI, 0]}
-      >
-        <mesh geometry={backPlateGeometry} castShadow>
-          <meshStandardMaterial 
-            color={metalColor} 
-            metalness={0.75} 
+      {/* Segmentos / Fios — Frontal (slightly inset so they sit inside holes) */}
+      {textureMode !== 'solid' && frontSegments.map((seg) => {
+        const s = seg as any;
+        const pos: [number, number, number] = s.position;
+        const adjustedPos: [number, number, number] = [pos[0], pos[1], pos[2] - 0.002];
+
+        // compute intensity at this segment cell so segment size/color follow the holes
+        const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+        const rowsPlate = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));
+        const normalizedX = Math.min(1, Math.max(0, (pos[0] + panelWidth / 2) / panelWidth));
+        const normalizedY = Math.min(1, Math.max(0, pos[1] / Math.max(1e-6, bancoMehinakuPerfuradoLegHeight)));
+        const colIdx = Math.min(colsPlate - 1, Math.max(0, Math.floor(normalizedX * colsPlate)));
+        const rowIdx = Math.min(rowsPlate - 1, Math.max(0, Math.floor(normalizedY * rowsPlate)));
+        const timeForSeg = params.animationPaused && pausedSnapshot != null ? pausedSnapshot : clockRef.current;
+        const intensity = computeIntensity(normalizedX, normalizedY, colIdx, colsPlate, bancoMehinakuPerfuradoLegHeight, timeForSeg);
+
+        // stronger intensity => smaller segment; increase contrast for visibility
+        const scaleMultiplier = 0.4 + (1 - intensity) * 1.2;
+        const newScale: [number, number, number] = [s.scale[0] * scaleMultiplier, s.scale[1], s.scale[2] * scaleMultiplier];
+
+        // Use the same texture color mapping so segments match the plate pattern
+        const newColor = getTextureColor(normalizedY, intensity, bancoMehinakuPerfuradoColor, textureMode, aiWaveParams);
+
+        return (
+          <Segment
+            key={s.key}
+            position={adjustedPos}
+            rotation={s.rotation}
+            scale={newScale}
+            color={newColor}
+            timeOffset={s.timeOffset}
+            frequencyIndex={s.frequencyIndex}
+            layerIndex={s.layerIndex}
+            totalLayers={s.totalLayers}
+          />
+        );
+      })}
+      {textureMode !== 'solid' && frontWires.map((wire) => (
+        <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
+      ))}
+
+      {/* (removed central metal frames/bars) - only perforated plates + segments remain */}
+
+      {/* Chapa perfurada traseira (alpha-masked plane) - positioned at mid-height of leg panel */}
+      <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} rotation={[0, Math.PI, 0]}>
+        <mesh rotation={[0, Math.PI, 0]} castShadow>
+          <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
+          <meshStandardMaterial
+            color={metalColor}
+            metalness={0.75}
             roughness={0.25}
             side={THREE.DoubleSide}
+            transparent={true}
+            alphaMap={maskTextureRef.current || undefined}
+            alphaTest={0.01}
           />
         </mesh>
-        
-        {framePositions.map((frame, i) => (
-          <mesh key={`back-frame-${i}`} position={[frame.x, bancoMehinakuPerfuradoLegHeight / 2, 0.003]}>
-            <boxGeometry args={[frame.width, bancoMehinakuPerfuradoLegHeight, 0.01]} />
-            <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
-          </mesh>
-        ))}
-        
-        {/* Barra horizontal superior */}
-        <mesh position={[0, bancoMehinakuPerfuradoLegHeight - 0.008, 0.003]}>
-          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
-          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
-        </mesh>
-        
-        {/* Barra horizontal inferior */}
-        <mesh position={[0, 0.008, 0.003]}>
-          <boxGeometry args={[panelWidth + 0.048, 0.016, 0.01]} />
-          <meshStandardMaterial color={metalColor} metalness={0.85} roughness={0.2} />
-        </mesh>
       </group>
+
+      {/* Segmentos / Fios — Traseiro (slightly inset) */}
+      {textureMode !== 'solid' && backSegments.map((seg) => {
+        const s = seg as any;
+        const pos: [number, number, number] = s.position;
+        const adjustedPos: [number, number, number] = [pos[0], pos[1], pos[2] + 0.002];
+
+        const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+        const rowsPlate = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));
+        const normalizedX = Math.min(1, Math.max(0, (pos[0] + panelWidth / 2) / panelWidth));
+        const normalizedY = Math.min(1, Math.max(0, pos[1] / Math.max(1e-6, bancoMehinakuPerfuradoLegHeight)));
+        const colIdx = Math.min(colsPlate - 1, Math.max(0, Math.floor(normalizedX * colsPlate)));
+        const rowIdx = Math.min(rowsPlate - 1, Math.max(0, Math.floor(normalizedY * rowsPlate)));
+        const timeForSeg = params.animationPaused && pausedSnapshot != null ? pausedSnapshot : clockRef.current;
+        const intensity = computeIntensity(normalizedX, normalizedY, colIdx, colsPlate, bancoMehinakuPerfuradoLegHeight, timeForSeg);
+
+        // stronger intensity => smaller segment; increase contrast for visibility
+        const scaleMultiplier = 0.4 + (1 - intensity) * 1.2;
+        const newScale: [number, number, number] = [s.scale[0] * scaleMultiplier, s.scale[1], s.scale[2] * scaleMultiplier];
+        const newColor = getTextureColor(normalizedY, intensity, bancoMehinakuPerfuradoColor, textureMode, aiWaveParams);
+
+        return (
+          <Segment
+            key={s.key}
+            position={adjustedPos}
+            rotation={s.rotation}
+            scale={newScale}
+            color={newColor}
+            timeOffset={s.timeOffset}
+            frequencyIndex={s.frequencyIndex}
+            layerIndex={s.layerIndex}
+            totalLayers={s.totalLayers}
+          />
+        );
+      })}
+      {textureMode !== 'solid' && backWires.map((wire) => (
+        <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
+      ))}
+
+      {/* (removed central metal frames/bars) - only perforated plates + segments remain */}
     </group>
   );
 }

@@ -867,18 +867,8 @@ export function Sidebar() {
                   <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoLegHeight * 100).toFixed(0)} cm</span>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label className="text-sm">Tamanho dos Furos</Label>
-                  <Slider
-                    value={[params.bancoMehinakuPerfuradoHoleSize]}
-                    onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoHoleSize: value })}
-                    min={0.008}
-                    max={0.025}
-                    step={0.001}
-                  />
-                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoHoleSize * 1000).toFixed(1)} mm</span>
-                </div>
-                
+                {/* Tamanho dos furos removido do painel — controlado internamente */}
+
                 <div className="space-y-2">
                   <Label className="text-sm">Espessura da Chapa</Label>
                   <Slider

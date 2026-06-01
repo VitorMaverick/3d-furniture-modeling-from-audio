@@ -2148,7 +2148,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       {textureMode !== 'solid' && frontSegments.map((seg) => {
         const s = seg as any;
         const pos: [number, number, number] = s.position;
-        const adjustedPos: [number, number, number] = [pos[0], pos[1], pos[2] - 0.002];
+        // Fixa posicao Z para evitar deslocamento que causa duplicacao visual
+        const fixedZ = bancoMehinakuPerfuradoTopDepth / 2 - 0.022;
+        const adjustedPos: [number, number, number] = [pos[0], pos[1], fixedZ];
 
         // compute intensity at this segment cell so segment size/color follow the holes
         const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
@@ -2207,7 +2209,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       {textureMode !== 'solid' && backSegments.map((seg) => {
         const s = seg as any;
         const pos: [number, number, number] = s.position;
-        const adjustedPos: [number, number, number] = [pos[0], pos[1], pos[2] + 0.002];
+        // Fixa posicao Z para evitar deslocamento que causa duplicacao visual
+        const fixedZ = -bancoMehinakuPerfuradoTopDepth / 2 + 0.022;
+        const adjustedPos: [number, number, number] = [pos[0], pos[1], fixedZ];
 
         const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
         const rowsPlate = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));

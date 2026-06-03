@@ -38,7 +38,7 @@ function ThreadedColumn({
   color?: string;
 }) {
   // Número de voltas da rosca baseado na altura
-  const threadPitch = 0.008; // Distância entre cada volta da rosca
+  const threadPitch = 0.006; // Distância entre cada volta da rosca
   const threadCount = Math.floor(height / threadPitch);
   
   return (
@@ -63,7 +63,7 @@ function ThreadedColumn({
             ]}
             rotation={[0, threadAngle, Math.PI / 2]}
           >
-            <torusGeometry args={[radius * 1.15, radius * 0.15, 6, 12, Math.PI * 0.8]} />
+            <torusGeometry args={[radius * 1.1, radius * 0.1, 6, 12, Math.PI * 0.8]} />
             <meshStandardMaterial color="#5A5A5A" metalness={0.75} roughness={0.35} />
           </mesh>
         );
@@ -71,25 +71,25 @@ function ThreadedColumn({
       
       {/* Porca sextavada superior */}
       <mesh position={[0, height + radius * 0.8, 0]} castShadow>
-        <cylinderGeometry args={[radius * 1.6, radius * 1.6, radius * 1.2, 6]} />
+        <cylinderGeometry args={[radius * 0.1, radius * 0.1, radius * 1.0, 6]} />
         <meshStandardMaterial color="#3A3A3A" metalness={0.9} roughness={0.2} />
       </mesh>
-      
+
       {/* Porca sextavada inferior */}
       <mesh position={[0, -radius * 0.8, 0]} castShadow>
-        <cylinderGeometry args={[radius * 1.6, radius * 1.6, radius * 1.2, 6]} />
+        <cylinderGeometry args={[radius * 0.1, radius * 0.1, radius * 1.0, 6]} />
         <meshStandardMaterial color="#3A3A3A" metalness={0.9} roughness={0.2} />
       </mesh>
-      
+
       {/* Arruela superior */}
       <mesh position={[0, height, 0]}>
-        <cylinderGeometry args={[radius * 1.8, radius * 1.8, radius * 0.2, 24]} />
+        <cylinderGeometry args={[radius * 0.2, radius * 0.2, radius * 0.15, 24]} />
         <meshStandardMaterial color="#5A5A5A" metalness={0.8} roughness={0.3} />
       </mesh>
-      
+
       {/* Arruela inferior */}
       <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[radius * 1.8, radius * 1.8, radius * 0.2, 24]} />
+        <cylinderGeometry args={[radius * 0.2, radius * 0.2, radius * 0.15, 24]} />
         <meshStandardMaterial color="#5A5A5A" metalness={0.8} roughness={0.3} />
       </mesh>
     </group>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useFurniture } from "@/lib/furniture-context";
 import type { AIWaveParams } from "@/lib/furniture-context";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Upload, X, CheckCircle, Loader2 } from "lucide-react";
+import { Sparkles, X, CheckCircle } from "lucide-react";
 
 interface AnalysisResult {
   params: AIWaveParams;
@@ -14,76 +14,93 @@ interface AnalysisResult {
 export function FrequencyUploadSection() {
   const { setParams, params } = useFurniture();
   const [isOpen, setIsOpen] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [audioParamsText, setAudioParamsText] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAIActive = params.textureMode === "ai-image";
 
-  function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) {
-      setError("Apenas imagens PNG, JPG ou WebP são aceitas.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Imagem muito grande. Máximo: 5MB.");
-      return;
-    }
+  function handleApplyJSON() {
     setError(null);
-    setResult(null);
-    setImageFile(file);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(URL.createObjectURL(file));
+    if (!audioParamsText.trim()) {
+      setError("Por favor, insira o JSON com os parâmetros.");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(audioParamsText);
+
+      if (typeof parsed !== "object" || parsed === null) {
+        setError("O JSON deve ser um objeto.");
+        return;
+      }
+
+      // Valida se contém os campos obrigatórios
+      if (typeof parsed.lowFreqAmplitude !== "number") {
+        setError("O campo 'lowFreqAmplitude' é obrigatório e deve ser um número.");
+        return;
+      }
+      if (typeof parsed.midFreqAmplitude !== "number") {
+        setError("O campo 'midFreqAmplitude' é obrigatório e deve ser um número.");
+        return;
+      }
+      if (typeof parsed.highFreqAmplitude !== "number") {
+        setError("O campo 'highFreqAmplitude' é obrigatório e deve ser um número.");
+        return;
+      }
+
+      if (!Array.isArray(parsed.colorPalette)) {
+        setError("O campo 'colorPalette' é obrigatório e deve ser uma array de cores (strings).");
+        return;
+      }
+      if (parsed.colorPalette.some((c: any) => typeof c !== "string")) {
+        setError("Todos os itens de 'colorPalette' devem ser strings (ex: '#ffffff').");
+        return;
+      }
+      if (parsed.colorPalette.length === 0) {
+        setError("A array 'colorPalette' não pode estar vazia.");
+        return;
+      }
+
+      // Calcula dominantBand se não estiver presente no JSON
+      let dominantBand = parsed.dominantBand;
+      if (dominantBand !== "low" && dominantBand !== "mid" && dominantBand !== "high") {
+        const low = parsed.lowFreqAmplitude;
+        const mid = parsed.midFreqAmplitude;
+        const high = parsed.highFreqAmplitude;
+        if (low >= mid && low >= high) {
+          dominantBand = "low";
+        } else if (high >= low && high >= mid) {
+          dominantBand = "high";
+        } else {
+          dominantBand = "mid";
+        }
+      }
+
+      const validatedParams: AIWaveParams = {
+        lowFreqAmplitude: parsed.lowFreqAmplitude,
+        midFreqAmplitude: parsed.midFreqAmplitude,
+        highFreqAmplitude: parsed.highFreqAmplitude,
+        complexity: typeof parsed.complexity === "number" ? parsed.complexity : 0.5,
+        density: typeof parsed.density === "number" ? parsed.density : 0.5,
+        dominantBand,
+        colorPalette: parsed.colorPalette,
+        message: typeof parsed.message === "string" ? parsed.message : "Parâmetros JSON aplicados com sucesso",
+        ...parsed,
+      };
+
+      setResult({ params: validatedParams, provider: "JSON Manual" });
+      setParams({ textureMode: "ai-image", aiWaveParams: validatedParams });
+    } catch (err) {
+      setError(err instanceof Error ? `Erro de sintaxe JSON: ${err.message}` : "Erro ao processar JSON.");
+    }
   }
 
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }
-
-  function handleReset(e?: React.MouseEvent) {
-    e?.stopPropagation();
-    setImageFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
+  function handleReset() {
     setResult(null);
     setError(null);
     if (params.textureMode === "ai-image") {
       setParams({ textureMode: "waveform", aiWaveParams: null });
-    }
-  }
-
-  async function handleAnalyze() {
-    if (!imageFile) return;
-    setIsAnalyzing(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("image", imageFile);
-      
-      // Adiciona parametros do Python se fornecidos
-      if (audioParamsText.trim()) {
-        formData.append("audioParams", audioParamsText.trim());
-      }
-      
-      const res = await fetch("/api/analyze-frequency", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erro ao analisar");
-      setResult(data as AnalysisResult);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao analisar imagem.");
-    } finally {
-      setIsAnalyzing(false);
     }
   }
 
@@ -115,105 +132,43 @@ export function FrequencyUploadSection() {
 
       {!isOpen && (
         <p className="text-xs text-muted-foreground">
-          Envie um gráfico de frequência para customizar as ondas do móvel com IA.
+          Insira os parâmetros em JSON para customizar as ondas do móvel com IA.
         </p>
       )}
 
       {isOpen && (
         <div className="space-y-3 pt-1">
-          {/* Drop zone */}
-          <div
-            className={`relative flex min-h-[80px] cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed transition-colors ${
-              isDragging
-                ? "border-primary bg-primary/5"
-                : "border-border/70 hover:border-primary/50 hover:bg-accent/30"
-            }`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-          >
-            {previewUrl ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Preview do gráfico"
-                  className="max-h-32 w-full rounded object-contain"
-                />
-                <button
-                  className="absolute right-1.5 top-1.5 rounded-full bg-background/80 p-0.5 hover:bg-destructive/20"
-                  onClick={handleReset}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </>
-            ) : (
-              <>
-                <Upload className="mb-1 h-5 w-5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  Clique ou arraste uma imagem
-                </span>
-                <span className="text-[10px] text-muted-foreground/60">
-                  PNG, JPG, WebP — máx. 5MB
-                </span>
-              </>
-            )}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-              e.target.value = "";
-            }}
-          />
-
-          {/* Campo opcional para parametros do Python */}
+          {/* Campo para parametros do Python */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Parametros do Python (opcional)
+              Parâmetros do Python
             </label>
             <textarea
-              className="w-full h-20 rounded border border-border/50 bg-background p-2 text-xs font-mono resize-none"
-              placeholder='{"lowFreqAmplitude":0.7,"subBassEnergy":0.8,...}'
+              className="w-full h-44 rounded border border-border/50 bg-background p-2 text-xs font-mono resize-none"
+              placeholder='{
+  "lowFreqAmplitude": 0.7,
+  "midFreqAmplitude": 0.5,
+  "highFreqAmplitude": 0.3,
+  "colorPalette": ["#8B4513", "#D2691E", "#CD853F"]
+}'
               value={audioParamsText}
               onChange={(e) => setAudioParamsText(e.target.value)}
             />
             <p className="text-[10px] text-muted-foreground/60">
-              Cole o JSON gerado pelo script de analise de audio
+              Cole o JSON gerado pelo script de análise de áudio
             </p>
           </div>
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
-          {imageFile && !result && (
-            <Button
-              size="sm"
-              className="w-full"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                  Analisando com IA...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-3 w-3" />
-                  Analisar Frequência
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={handleApplyJSON}
+          >
+            <Sparkles className="mr-2 h-3 w-3" />
+            Aplicar Parâmetros JSON
+          </Button>
 
           {result && (
             <div className="space-y-2 rounded-md bg-muted/50 p-3">
@@ -282,7 +237,7 @@ export function FrequencyUploadSection() {
                   size="sm"
                   variant="ghost"
                   className="w-full text-xs"
-                  onClick={() => handleReset()}
+                  onClick={handleReset}
                 >
                   Remover modo IA
                 </Button>

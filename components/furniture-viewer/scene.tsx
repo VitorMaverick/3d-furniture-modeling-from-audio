@@ -63,12 +63,12 @@ function SceneContent() {
           </>
         ) : (
           <>
-            {params.activeTab === "table" && <SegmentedTable key={`table-${params.textureMode}`} position={[0, 0, 0]} />}
-            {params.activeTab === "chair" && <SegmentedChair key={`chair-${params.textureMode}`} position={[0, 0, 0]} />}
-            {params.activeTab === "roundTable" && <SegmentedRoundTable key={`roundTable-${params.textureMode}`} position={[0, 0, 0]} />}
-            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku key={`bancoMehinaku-${params.textureMode}`} position={[0, 0, 0]} />}
-            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-${params.textureMode}`} position={[0, 0, 0]} />}
-            {params.activeTab === "bancoWauja" && <SegmentedBancoWauja key={`bancoWauja-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "table" && <SegmentedTable key={`table-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "chair" && <SegmentedChair key={`chair-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "roundTable" && <SegmentedRoundTable key={`roundTable-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku key={`bancoMehinaku-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoWauja" && <SegmentedBancoWauja key={`bancoWauja-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
           </>
         )}
       </group>

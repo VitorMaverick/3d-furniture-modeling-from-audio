@@ -577,6 +577,22 @@ function Wire({ points, color = "#888888", lineWidth = 1 }: WireProps) {
   );
 }
 
+function resolveSegmentLayers(height: number, segmentHeight: number, fallbackMin: number, segmentLayers?: number) {
+  const fallback = Math.max(fallbackMin, Math.floor(height / segmentHeight));
+  return Math.max(1, Math.floor(segmentLayers ?? fallback));
+}
+
+function resolveSegmentsPerLayer(segmentsPerLayer: number) {
+  return Math.max(4, Math.floor(segmentsPerLayer));
+}
+
+function resolveSegmentSize(segmentSize?: number, fallback = 0.02) {
+  // Treat segmentSize as a multiplier over base size of 0.012
+  const baseSize = 0.012;
+  const multiplier = segmentSize ?? 1;
+  return multiplier * baseSize;
+}
+
 // Gera segmentos para uma barra/perna vertical com fios visiveis
 function generateBarSegmentsWithWires(
   thickness: number,
@@ -585,14 +601,16 @@ function generateBarSegmentsWithWires(
   segmentHeight: number,
   baseY: number,
   totalHeight: number,
-  baseColor?: string
+  baseColor?: string,
+  segmentLayers?: number,
+  segmentSize?: number
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
   
-  const layers = Math.max(8, Math.floor(height / segmentHeight));
+  const layers = resolveSegmentLayers(height, segmentHeight, 8, segmentLayers);
   const segHeight = height / layers;
-  const segSize = thickness * 0.7;
+  const segSize = resolveSegmentSize(segmentSize, thickness * 0.7);
   
   let prevPosition: [number, number, number] | null = null;
   
@@ -645,13 +663,17 @@ function generateCylinderSegmentsWithWires(
   segmentsPerRing: number,
   baseColor?: string,
   textureMode: string = "waveform",
-  aiWaveParams?: AIWaveParams | null
+  aiWaveParams?: AIWaveParams | null,
+  segmentLayers?: number,
+  segmentSize?: number
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
   
-  const layers = Math.max(20, Math.floor(height / segmentHeight));
+  const layers = resolveSegmentLayers(height, segmentHeight, 20, segmentLayers);
   const segHeight = height / layers;
+  const actualSegments = resolveSegmentsPerLayer(segmentsPerRing);
+  const segmentUnit = resolveSegmentSize(segmentSize);
   
   let prevLayerPositions: [number, number, number][] = [];
   
@@ -664,24 +686,24 @@ function generateCylinderSegmentsWithWires(
     const currentLayerPositions: [number, number, number][] = [];
     const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
 
-    for (let seg = 0; seg < segmentsPerRing; seg++) {
-      const angle = (seg / segmentsPerRing) * Math.PI * 2;
+    for (let seg = 0; seg < actualSegments; seg++) {
+      const angle = (seg / actualSegments) * Math.PI * 2;
       const baseX = position[0] + Math.cos(angle) * currentRadius;
       const baseZ = position[2] + Math.sin(angle) * currentRadius;
 
       // Aplica deslocamento inicial baseado no modo de textura
       const { dx, dz, scale: scaleModifier } = getInitialDisplacement(
-        layer, layers, seg, segmentsPerRing, [baseX, y, baseZ], textureMode, 0.8, aiWaveParams
+        layer, layers, seg, actualSegments, [baseX, y, baseZ], textureMode, 0.8, aiWaveParams
       );
       const x = baseX + dx;
       const z = baseZ + dz;
 
-      const color = getTextureColor(normalizedY, seg / segmentsPerRing, baseColor, textureMode, aiWaveParams);
+      const color = getTextureColor(normalizedY, seg / actualSegments, baseColor, textureMode, aiWaveParams);
 
       // Segmentos pequenos e finos - tamanho varia com o modo
-      const circumference = 2 * Math.PI * currentRadius;
-      const segWidth = (circumference / segmentsPerRing) * 0.65 * scaleModifier;
-      const segDepth = 0.012 * scaleModifier;
+      const segWidth = segmentUnit * 1.6 * scaleModifier;
+      const segHeightScale = segmentUnit * 0.8 * scaleModifier;
+      const segDepth = segmentUnit * 0.6 * scaleModifier;
       
       const segPos: [number, number, number] = [x, y, z];
       currentLayerPositions.push(segPos);
@@ -690,7 +712,7 @@ function generateCylinderSegmentsWithWires(
         key: `cyl-${layer}-${seg}`,
         position: segPos,
         rotation: [0, -angle + Math.PI / 2, 0],
-        scale: [segWidth, segHeight * 0.4 * scaleModifier, segDepth],
+        scale: [segWidth, segHeightScale, segDepth],
         color,
         timeOffset: layer * 0.08 + seg * 0.03,
         frequencyIndex: seg,
@@ -757,15 +779,18 @@ function generateSemicylinderSegmentsWithWires(
   startAngle: number = -Math.PI / 2,
   arcAngle: number = Math.PI,
   textureMode: string = "waveform",
-  aiWaveParams?: AIWaveParams | null
+  aiWaveParams?: AIWaveParams | null,
+  segmentLayers?: number,
+  segmentSize?: number
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
   
-  const layers = Math.max(20, Math.floor(height / segmentHeight));
+  const layers = resolveSegmentLayers(height, segmentHeight, 20, segmentLayers);
   const segHeight = height / layers;
   // Ajusta segmentos para semicirculo
-  const actualSegments = Math.max(8, Math.floor(segmentsPerRing / 2));
+  const actualSegments = resolveSegmentsPerLayer(segmentsPerRing);
+  const segmentUnit = resolveSegmentSize(segmentSize);
   
   let prevLayerPositions: [number, number, number][] = [];
   
@@ -794,9 +819,9 @@ function generateSemicylinderSegmentsWithWires(
       const color = getTextureColor(normalizedY, seg / actualSegments, baseColor, textureMode, aiWaveParams);
 
       // Segmentos pequenos e finos - tamanho varia com o modo
-      const arcLength = arcAngle * currentRadius;
-      const segWidth = (arcLength / actualSegments) * 0.65 * scaleModifier;
-      const segDepth = 0.012 * scaleModifier;
+      const segWidth = segmentUnit * 1.6 * scaleModifier;
+      const segHeightScale = segmentUnit * 0.8 * scaleModifier;
+      const segDepth = segmentUnit * 0.6 * scaleModifier;
       
       const segPos: [number, number, number] = [x, y, z];
       currentLayerPositions.push(segPos);
@@ -805,7 +830,7 @@ function generateSemicylinderSegmentsWithWires(
         key: `semi-${layer}-${seg}`,
         position: segPos,
         rotation: [0, -angle + Math.PI / 2, 0],
-        scale: [segWidth, segHeight * 0.4 * scaleModifier, segDepth],
+        scale: [segWidth, segHeightScale, segDepth],
         color,
         timeOffset: layer * 0.08 + seg * 0.03,
         frequencyIndex: seg,
@@ -859,15 +884,18 @@ function generateFlatPanelSegmentsWithWires(
   baseColor?: string,
   orientation: "front" | "back" = "front",
   textureMode: string = "waveform",
-  aiWaveParams?: AIWaveParams | null
+  aiWaveParams?: AIWaveParams | null,
+  segmentLayers?: number,
+  segmentSize?: number
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
   
-  const layers = Math.max(20, Math.floor(height / segmentHeight));
+  const layers = resolveSegmentLayers(height, segmentHeight, 20, segmentLayers);
   const segHeight = height / layers;
-  const actualSegments = Math.max(12, segmentsPerRow);
+  const actualSegments = resolveSegmentsPerLayer(segmentsPerRow);
   const segWidth = width / actualSegments;
+  const segmentUnit = resolveSegmentSize(segmentSize);
   
   let prevLayerPositions: [number, number, number][] = [];
   
@@ -890,11 +918,11 @@ function generateFlatPanelSegmentsWithWires(
     const currentLayerPositions: [number, number, number][] = [];
     const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
 
-    for (let seg = 0; seg <= actualSegments; seg++) {
+    for (let seg = 0; seg < actualSegments; seg++) {
       const normalizedSeg = seg / actualSegments;
 
       // Distribui segmentos linearmente ao longo da largura
-      const xOffset = -width / 2 + seg * segWidth;
+      const xOffset = -width / 2 + (seg + 0.5) * segWidth;
       const baseX = position[0] + xOffset;
       const baseZ = position[2];
 
@@ -1012,7 +1040,7 @@ function generateFlatPanelSegmentsWithWires(
         key: `flat-${orientation}-${layer}-${seg}`,
         position: segPos,
         rotation: [0, rotationY, 0],
-        scale: [segWidth * 0.8 * scaleModifier, segHeight * 0.6 * scaleModifier, 0.018 * scaleModifier],
+        scale: [segmentUnit * 0.8 * scaleModifier, segmentUnit * 0.6 * scaleModifier, segmentUnit * 0.9 * scaleModifier],
         color,
         timeOffset: layer * 0.08 + seg * 0.03,
         frequencyIndex: seg,
@@ -1066,15 +1094,18 @@ function generateLateralFlatPanelSegmentsWithWires(
   baseColor?: string,
   orientation: "left" | "right" = "left",
   textureMode: string = "waveform",
-  aiWaveParams?: AIWaveParams | null
+  aiWaveParams?: AIWaveParams | null,
+  segmentLayers?: number,
+  segmentSize?: number
 ): { segments: Array<SegmentProps & { key: string }>, wires: Array<{ key: string, points: [number, number, number][], color?: string }> } {
   const segments: Array<SegmentProps & { key: string }> = [];
   const wires: Array<{ key: string, points: [number, number, number][], color?: string }> = [];
   
-  const layers = Math.max(20, Math.floor(height / segmentHeight));
+  const layers = resolveSegmentLayers(height, segmentHeight, 20, segmentLayers);
   const segHeight = height / layers;
-  const actualSegments = Math.max(12, segmentsPerRow);
+  const actualSegments = resolveSegmentsPerLayer(segmentsPerRow);
   const segDepth = depth / actualSegments;
+  const segmentUnit = resolveSegmentSize(segmentSize);
   
   let prevLayerPositions: [number, number, number][] = [];
   
@@ -1097,11 +1128,11 @@ function generateLateralFlatPanelSegmentsWithWires(
     const currentLayerPositions: [number, number, number][] = [];
     const layerColor = getTextureColor(normalizedY, 1, baseColor, textureMode, aiWaveParams);
 
-    for (let seg = 0; seg <= actualSegments; seg++) {
+    for (let seg = 0; seg < actualSegments; seg++) {
       const normalizedSeg = seg / actualSegments;
 
       // Distribui segmentos linearmente ao longo da profundidade (eixo Z)
-      const zOffset = -depth / 2 + seg * segDepth;
+      const zOffset = -depth / 2 + (seg + 0.5) * segDepth;
       const baseX = position[0];
       const baseZ = position[2] + zOffset;
 
@@ -1204,7 +1235,7 @@ function generateLateralFlatPanelSegmentsWithWires(
         key: `lateral-${orientation}-${layer}-${seg}`,
         position: segPos,
         rotation: [0, rotationY, 0],
-        scale: [segDepth * 0.8 * scaleModifier, segHeight * 0.6 * scaleModifier, 0.018 * scaleModifier],
+        scale: [segmentUnit * 0.8 * scaleModifier, segmentUnit * 0.6 * scaleModifier, segmentUnit * 0.9 * scaleModifier],
         color,
         timeOffset: layer * 0.08 + seg * 0.03,
         frequencyIndex: seg,
@@ -1304,7 +1335,9 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
     chairBackHeight,
     chairLegHeight,
     chairColor,
+    segmentLayers,
     segmentsPerLayer,
+    segmentSize,
     textureMode,
     aiWaveParams,
   } = params;
@@ -1346,10 +1379,12 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       segmentHeight,
       0,
       totalHeight,
-      Math.floor(segmentsPerLayer * 0.8),
+      params.segmentsPerLayer,
       chairColor,
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
 
     // Encosto - formato semicirculo (apenas a parte de tras) - rente a borda do assento
@@ -1362,24 +1397,26 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       segmentHeight,
       chairLegHeight,
       totalHeight,
-      Math.floor(segmentsPerLayer * 0.6),
+      params.segmentsPerLayer,
       chairColor,
       -Math.PI,
       Math.PI,
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
-    
-    return { 
-      baseSegments: baseSegs, 
+
+    return {
+      baseSegments: baseSegs,
       baseWires: baseW,
       backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` }))
     };
-  }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode, aiWaveParams]);
+  }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode, aiWaveParams]);
   
   return (
-    <group position={position}>
+    <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
       {/* Assento solido */}
       <SolidCap 
         radius={Math.min(chairSeatWidth, chairSeatDepth) * 0.55} 
@@ -1436,7 +1473,9 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
     tableTopHeight,
     tableLegHeight,
     tableColor,
+    segmentLayers,
     segmentsPerLayer,
+    segmentSize,
     textureMode,
     aiWaveParams,
   } = params;
@@ -1458,15 +1497,17 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
       segmentHeight,
       0,
       totalHeight,
-      segmentsPerLayer,
+      params.segmentsPerLayer,
       tableColor,
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
-  }, [tableLegHeight, totalHeight, segmentHeight, segmentsPerLayer, baseTopRadius, baseBottomRadius, tableColor, textureMode, aiWaveParams]);
-  
+  }, [tableLegHeight, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, baseTopRadius, baseBottomRadius, tableColor, textureMode, aiWaveParams]);
+
   return (
-    <group position={position}>
+    <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
       {/* Tampo solido */}
       <mesh position={[0, topY, 0]} castShadow receiveShadow>
         <boxGeometry args={[tableTopWidth, tableTopHeight, tableTopDepth]} />
@@ -1512,7 +1553,9 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
     roundTableBaseBottomRadius,
     roundTableBaseHeight,
     roundTableColor,
+    segmentLayers,
     segmentsPerLayer,
+    segmentSize,
     textureMode,
     aiWaveParams,
   } = params;
@@ -1544,15 +1587,17 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
       segmentHeight,
       0,
       totalHeight,
-      segmentsPerLayer,
+      params.segmentsPerLayer,
       roundTableColor,
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
-  }, [roundTableBaseTopRadius, roundTableBaseBottomRadius, roundTableBaseHeight, segmentHeight, totalHeight, segmentsPerLayer, roundTableColor, textureMode, aiWaveParams]);
-  
+  }, [roundTableBaseTopRadius, roundTableBaseBottomRadius, roundTableBaseHeight, segmentHeight, totalHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, roundTableColor, textureMode, aiWaveParams]);
+
   return (
-    <group position={position}>
+    <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
       {/* Tampo solido */}
       <SolidCap 
         radius={roundTableTopRadius} 
@@ -1600,7 +1645,9 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
     bancoMehinakuLegHeight,
     bancoMehinakuColor,
     bancoMehinakuColumnRadius,
+    segmentLayers,
     segmentsPerLayer,
+    segmentSize,
     textureMode,
     aiWaveParams,
   } = params;
@@ -1617,7 +1664,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
   const columnRadius = (bancoMehinakuColumnRadius || 0.018) * 0.5;
   
   // Número de segmentos por linha (deve corresponder ao usado na geração dos fios)
-  const actualSegments = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+  const actualSegments = resolveSegmentsPerLayer(segmentsPerLayer);
   const segWidth = panelWidth / actualSegments;
   
   // Posições dos parafusos de rosca contínua que sustentam cada segmento (incluindo extremidades)
@@ -1645,11 +1692,13 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       segmentHeight,
       0,
       totalHeight,
-      Math.floor(segmentsPerLayer * 0.6),
+      params.segmentsPerLayer,
       bancoMehinakuColor,
       "front",
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
 
     // Painel traseiro (na borda traseira da tampa)
@@ -1660,20 +1709,22 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       segmentHeight,
       0,
       totalHeight,
-      Math.floor(segmentsPerLayer * 0.6),
+      params.segmentsPerLayer,
       bancoMehinakuColor,
       "back",
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
-    
-    return { 
-      frontSegments: frontSegs, 
+
+    return {
+      frontSegments: frontSegs,
       frontWires: frontW,
       backSegments: backSegs.map(s => ({ ...s, key: `back-${s.key}` })),
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` }))
     };
-  }, [bancoMehinakuTopDepth, bancoMehinakuLegHeight, totalHeight, segmentHeight, segmentsPerLayer, panelWidth, bancoMehinakuColor, textureMode, aiWaveParams]);
+  }, [bancoMehinakuTopDepth, bancoMehinakuLegHeight, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, panelWidth, bancoMehinakuColor, textureMode, aiWaveParams]);
   
   // Geometria do tampo com pontas curvas
   const topGeometry = useMemo(() => {
@@ -1704,7 +1755,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
   }, [bancoMehinakuTopWidth, bancoMehinakuTopDepth, bancoMehinakuTopHeight, cornerRadius]);
   
   return (
-    <group position={position}>
+      <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
       {/* Tampo retangular com pontas curvas */}
       <group position={[0, topY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh position={[0, 0, -bancoMehinakuTopHeight / 2]} geometry={topGeometry} receiveShadow>
@@ -1798,7 +1849,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
     waveIntensity,
     fftIntensity,
     spectrogramIntensity,
+    segmentLayers,
     segmentsPerLayer,
+    segmentSize,
     aiWaveParams,
   } = params;
 
@@ -1880,7 +1933,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
   // Gera segmentos e fios para a chapa perfurada (front + back) — antes só era desenhada a ExtrudeGeometry
   const { frontSegments, frontWires, backSegments, backWires, framePositions } = useMemo(() => {
     const segmentHeight = 0.012;
-    const cols = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
+    const cols = resolveSegmentsPerLayer(params.segmentsPerLayer);
 
     const { segments: frontSegs, wires: frontW } = generateFlatPanelSegmentsWithWires(
       panelWidth,
@@ -1893,7 +1946,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       bancoMehinakuPerfuradoColor,
       "front",
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
 
     const { segments: backSegs, wires: backW } = generateFlatPanelSegmentsWithWires(
@@ -1907,7 +1962,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       bancoMehinakuPerfuradoColor,
       "back",
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
 
     const frames = [
@@ -1922,7 +1979,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       backWires: backW.map(w => ({ ...w, key: `back-${w.key}` })),
       framePositions: frames
     };
-  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, bancoMehinakuPerfuradoColor, segmentsPerLayer, textureMode, aiWaveParams]);
+  }, [panelWidth, bancoMehinakuPerfuradoLegHeight, bancoMehinakuPerfuradoTopDepth, bancoMehinakuPerfuradoTopHeight, bancoMehinakuPerfuradoColor, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, textureMode, aiWaveParams]);
 
   const woodColor = "#5D4037";
   const metalColor = bancoMehinakuPerfuradoColor;
@@ -1956,8 +2013,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
 
   useEffect(() => {
     // create canvas and texture once (with devicePixelRatio-aware sizing)
-    const cols = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
-    const rows = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));
+    const cols = resolveSegmentsPerLayer(segmentsPerLayer);
+    const rows = resolveSegmentLayers(bancoMehinakuPerfuradoLegHeight, segmentHeight, 20, segmentLayers);
 
     const dpr = typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio || 1) : 1;
     const baseCellPx = 48; // logical px per cell for higher default resolution
@@ -2003,7 +2060,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
       setMaskTexture(null);
     };
     // recreate if grid size changes
-  }, [segmentsPerLayer, bancoMehinakuPerfuradoLegHeight, segmentHeight, params.animationSpeed]);
+  }, [segmentLayers, segmentsPerLayer, bancoMehinakuPerfuradoLegHeight, segmentHeight, params.animationSpeed]);
 
   // Update mask drawing function
   const updateMask = (time: number) => {
@@ -2137,7 +2194,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
   });
 
   return (
-    <group position={position}>
+      <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
       {/* Tampo retangular com pontas curvas (madeira) */}
       <group position={[0, topY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh position={[0, 0, -bancoMehinakuPerfuradoTopHeight / 2]} geometry={topGeometry} receiveShadow>
@@ -2170,8 +2227,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         const adjustedPos: [number, number, number] = [pos[0], pos[1], fixedZ];
 
         // compute intensity at this segment cell so segment size/color follow the holes
-        const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
-        const rowsPlate = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));
+        const colsPlate = resolveSegmentsPerLayer(segmentsPerLayer);
+        const rowsPlate = resolveSegmentLayers(bancoMehinakuPerfuradoLegHeight, segmentHeight, 20, segmentLayers);
         const normalizedX = Math.min(1, Math.max(0, (pos[0] + panelWidth / 2) / panelWidth));
         const normalizedY = Math.min(1, Math.max(0, pos[1] / Math.max(1e-6, bancoMehinakuPerfuradoLegHeight)));
         const colIdx = Math.min(colsPlate - 1, Math.max(0, Math.floor(normalizedX * colsPlate)));
@@ -2230,8 +2287,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         const fixedZ = -bancoMehinakuPerfuradoTopDepth / 2 + 0.022;
         const adjustedPos: [number, number, number] = [pos[0], pos[1], fixedZ];
 
-        const colsPlate = Math.max(12, Math.floor(segmentsPerLayer * 0.6));
-        const rowsPlate = Math.max(20, Math.floor(bancoMehinakuPerfuradoLegHeight / segmentHeight));
+        const colsPlate = resolveSegmentsPerLayer(segmentsPerLayer);
+        const rowsPlate = resolveSegmentLayers(bancoMehinakuPerfuradoLegHeight, segmentHeight, 20, segmentLayers);
         const normalizedX = Math.min(1, Math.max(0, (pos[0] + panelWidth / 2) / panelWidth));
         const normalizedY = Math.min(1, Math.max(0, pos[1] / Math.max(1e-6, bancoMehinakuPerfuradoLegHeight)));
         const colIdx = Math.min(colsPlate - 1, Math.max(0, Math.floor(normalizedX * colsPlate)));
@@ -2276,7 +2333,9 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
     bancoWaujaDepth,
     bancoWaujaHeight,
     bancoWaujaColor,
+    segmentLayers,
     segmentsPerLayer,
+    segmentSize,
     textureMode,
     aiWaveParams,
   } = params;
@@ -2296,11 +2355,13 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       segmentHeight,
       0,
       totalHeight,
-      Math.floor(segmentsPerLayer * 0.6),
+      params.segmentsPerLayer,
       bancoWaujaColor,
       "left",
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
 
     // Painel direito (lateral direita)
@@ -2311,23 +2372,25 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       segmentHeight,
       0,
       totalHeight,
-      Math.floor(segmentsPerLayer * 0.6),
+      params.segmentsPerLayer,
       bancoWaujaColor,
       "right",
       textureMode,
-      aiWaveParams
+      aiWaveParams,
+      params.segmentLayers,
+      params.segmentSize
     );
-    
-    return { 
-      leftSegments: leftSegs, 
+
+    return {
+      leftSegments: leftSegs,
       leftWires: leftW,
       rightSegments: rightSegs.map(s => ({ ...s, key: `right-${s.key}` })),
       rightWires: rightW.map(w => ({ ...w, key: `right-${w.key}` }))
     };
-  }, [bancoWaujaWidth, bancoWaujaHeight, totalHeight, segmentHeight, segmentsPerLayer, panelDepth, bancoWaujaColor, textureMode, aiWaveParams]);
+  }, [bancoWaujaWidth, bancoWaujaHeight, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, panelDepth, bancoWaujaColor, textureMode, aiWaveParams]);
   
   return (
-    <group position={position}>
+      <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
       {/* Tampo superior solido */}
       <mesh position={[0, bancoWaujaHeight - 0.015, 0]} castShadow receiveShadow>
         <boxGeometry args={[bancoWaujaWidth, 0.03, bancoWaujaDepth]} />

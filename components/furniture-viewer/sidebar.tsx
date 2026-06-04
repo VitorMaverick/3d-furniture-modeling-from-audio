@@ -97,9 +97,11 @@ export function Sidebar() {
                 Redonda
               </TabsTrigger>
               <TabsTrigger value="bancoMehinaku" className="flex-1 text-xs py-1.5 min-w-[70px]">
-                Mehinaku
+                Mehinaku <br/>
+                Parafusos
               </TabsTrigger>
               <TabsTrigger value="bancoMehinakuPerfurado" className="flex-1 text-xs py-1.5 min-w-[70px]">
+                Mehinaku <br/>
                 Perfurado
               </TabsTrigger>
               <TabsTrigger value="bancoWauja" className="flex-1 text-xs py-1.5 min-w-[70px]">
@@ -252,11 +254,11 @@ export function Sidebar() {
                     <Slider
                       value={[params.segmentSize]}
                       onValueChange={([value]) => setParams({ segmentSize: value })}
-                      min={0.03}
-                      max={0.15}
-                      step={0.01}
+                      min={0.5}
+                      max={3}
+                      step={0.1}
                     />
-                    <span className="text-xs text-muted-foreground">{(params.segmentSize * 100).toFixed(0)}%</span>
+                    <span className="text-xs text-muted-foreground">{params.segmentSize.toFixed(1)}x</span>
                   </div>
 
                   <div className="flex items-center justify-between">

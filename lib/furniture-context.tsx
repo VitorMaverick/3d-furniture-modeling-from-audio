@@ -174,16 +174,16 @@ const defaultParams: FurnitureParams = {
   
   // Textura de áudio
   textureMode: "waveform",
-  waveIntensity: 0.8,
+  waveIntensity: 0.5,
   fftIntensity: 0.8,
   spectrogramIntensity: 0.9,
   animationSpeed: 1.0,
   animationPaused: false,
   
   // Segmentos
-  segmentLayers: 50,
+  segmentLayers: 35,
   segmentsPerLayer: 32,
-  segmentSize: 0.02,
+  segmentSize: 1,
   segmentGap: 0.005,
 
   // Modo IA

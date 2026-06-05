@@ -169,7 +169,7 @@ const defaultParams: FurnitureParams = {
   // Visualização
   autoRotate: true,
   rotationSpeed: 0.5,
-  showWireframe: false,
+  showWireframe: true,
   showGrid: true,
   
   // Textura de áudio

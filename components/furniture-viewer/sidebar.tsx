@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download, Camera, Video, Image, X } from "lucide-react";
+import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download, Camera, Video, Image, X, RectangleHorizontal, LayoutGrid, AlignHorizontalSpaceAround } from "lucide-react";
 import { exportToSTL, exportToOBJ } from "@/lib/stl-exporter";
 import { FrequencyUploadSection } from "@/components/furniture-viewer/frequency-upload-modal";
 import { useState } from "react";
@@ -92,19 +92,23 @@ export function Sidebar() {
                 <Table2 className="h-4 w-4" />
                 Mesa
               </TabsTrigger>
-              <TabsTrigger value="roundTable" className="flex-1 flex items-center justify-center gap-1 text-xs min-w-[70px]">
+              <TabsTrigger value="roundTable" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
                 <Circle className="h-4 w-4" />
+                Mesa <br/>
                 Redonda
               </TabsTrigger>
-              <TabsTrigger value="bancoMehinaku" className="flex-1 text-xs py-1.5 min-w-[70px]">
+              <TabsTrigger value="bancoMehinaku" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
+                <RectangleHorizontal className="h-3 w-3" />
                 Mehinaku <br/>
                 Parafusos
               </TabsTrigger>
-              <TabsTrigger value="bancoMehinakuPerfurado" className="flex-1 text-xs py-1.5 min-w-[70px]">
+              <TabsTrigger value="bancoMehinakuPerfurado" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
+                <LayoutGrid className="h-3 w-3" />
                 Mehinaku <br/>
                 Perfurado
               </TabsTrigger>
-              <TabsTrigger value="bancoWauja" className="flex-1 text-xs py-1.5 min-w-[70px]">
+              <TabsTrigger value="bancoWauja" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
+                <AlignHorizontalSpaceAround className="h-3 w-3" />
                 Wauja
               </TabsTrigger>
             </TabsList>
@@ -145,7 +149,7 @@ export function Sidebar() {
               </div>
               
               <div className="flex items-center justify-between">
-                <Label htmlFor="show-wireframe" className="text-sm">Wireframe</Label>
+                <Label htmlFor="show-wireframe" className="text-sm">Linhas de Conexão</Label>
                 <Switch
                   id="show-wireframe"
                   checked={params.showWireframe}
@@ -162,19 +166,6 @@ export function Sidebar() {
                 />
               </div>
 
-              {params.autoRotate && (
-                <div className="space-y-2">
-                  <Label className="text-sm">Velocidade de Rotação</Label>
-                  <Slider
-                    value={[params.rotationSpeed]}
-                    onValueChange={([value]) => setParams({ rotationSpeed: value })}
-                    min={0.1}
-                    max={2}
-                    step={0.1}
-                  />
-                  <span className="text-xs text-muted-foreground">{params.rotationSpeed.toFixed(1)}x</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -555,7 +546,8 @@ export function Sidebar() {
           {/* Parâmetros do Banco Mehinaku */}
           {params.activeTab === "bancoMehinaku" && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <RectangleHorizontal className="h-4 w-4" />
                 Banco Mehinaku
               </h2>
               
@@ -566,10 +558,22 @@ export function Sidebar() {
                     value={[params.bancoMehinakuTopWidth]}
                     onValueChange={([value]) => setParams({ bancoMehinakuTopWidth: value })}
                     min={0.35}
-                    max={0.8}
+                    max={1.2}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoMehinakuTopWidth * 100).toFixed(0)} cm</span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Profundidade do Tampo</Label>
+                  <Slider
+                    value={[params.bancoMehinakuTopDepth]}
+                    onValueChange={([value]) => setParams({ bancoMehinakuTopDepth: value })}
+                    min={0.15}
+                    max={0.8}
+                    step={0.01}
+                  />
+                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuTopDepth * 100).toFixed(0)} cm</span>
                 </div>
                 
                 <div className="space-y-2">
@@ -578,24 +582,12 @@ export function Sidebar() {
                     value={[params.bancoMehinakuLegHeight]}
                     onValueChange={([value]) => setParams({ bancoMehinakuLegHeight: value })}
                     min={0.1}
-                    max={0.35}
+                    max={0.6}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoMehinakuLegHeight * 100).toFixed(0)} cm</span>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label className="text-sm">Curvatura das Pernas</Label>
-                  <Slider
-                    value={[params.bancoMehinakuLegCurve]}
-                    onValueChange={([value]) => setParams({ bancoMehinakuLegCurve: value })}
-                    min={0.1}
-                    max={0.5}
-                    step={0.05}
-                  />
-                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuLegCurve * 100).toFixed(0)}%</span>
-                </div>
-
                 <div className="space-y-2">
                   <Label className="text-sm">Cor do Banco</Label>
                   <div className="flex gap-2">
@@ -617,7 +609,7 @@ export function Sidebar() {
                   <Slider
                     value={[params.bancoMehinakuColumnRadius]}
                     onValueChange={([value]) => setParams({ bancoMehinakuColumnRadius: value })}
-                    min={0.006}
+                    min={0.001}
                     max={0.025}
                     step={0.001}
                   />
@@ -630,7 +622,8 @@ export function Sidebar() {
           {/* Parâmetros do Banco Mehinaku Perfurado */}
           {params.activeTab === "bancoMehinakuPerfurado" && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <LayoutGrid className="h-4 w-4" />
                 Banco Mehinaku - Chapa Perfurada
               </h2>
               
@@ -641,10 +634,22 @@ export function Sidebar() {
                     value={[params.bancoMehinakuPerfuradoTopWidth]}
                     onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoTopWidth: value })}
                     min={0.35}
-                    max={0.8}
+                    max={1.2}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoTopWidth * 100).toFixed(0)} cm</span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Profundidade do Tampo</Label>
+                  <Slider
+                    value={[params.bancoMehinakuPerfuradoTopDepth]}
+                    onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoTopDepth: value })}
+                    min={0.15}
+                    max={0.8}
+                    step={0.01}
+                  />
+                  <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoTopDepth * 100).toFixed(0)} cm</span>
                 </div>
                 
                 <div className="space-y-2">
@@ -653,7 +658,7 @@ export function Sidebar() {
                     value={[params.bancoMehinakuPerfuradoLegHeight]}
                     onValueChange={([value]) => setParams({ bancoMehinakuPerfuradoLegHeight: value })}
                     min={0.1}
-                    max={0.35}
+                    max={0.6}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoMehinakuPerfuradoLegHeight * 100).toFixed(0)} cm</span>
@@ -728,7 +733,8 @@ export function Sidebar() {
           {/* Parâmetros do Banco Waujá */}
           {params.activeTab === "bancoWauja" && (
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <AlignHorizontalSpaceAround className="h-4 w-4" />
                 Banco Ponte - Wauja
               </h2>
               
@@ -739,7 +745,7 @@ export function Sidebar() {
                     value={[params.bancoWaujaWidth]}
                     onValueChange={([value]) => setParams({ bancoWaujaWidth: value })}
                     min={0.3}
-                    max={0.8}
+                    max={1.2}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoWaujaWidth * 100).toFixed(0)} cm</span>
@@ -751,7 +757,7 @@ export function Sidebar() {
                     value={[params.bancoWaujaDepth]}
                     onValueChange={([value]) => setParams({ bancoWaujaDepth: value })}
                     min={0.2}
-                    max={0.5}
+                    max={0.8}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoWaujaDepth * 100).toFixed(0)} cm</span>
@@ -763,7 +769,7 @@ export function Sidebar() {
                     value={[params.bancoWaujaHeight]}
                     onValueChange={([value]) => setParams({ bancoWaujaHeight: value })}
                     min={0.15}
-                    max={0.4}
+                    max={0.6}
                     step={0.01}
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoWaujaHeight * 100).toFixed(0)} cm</span>

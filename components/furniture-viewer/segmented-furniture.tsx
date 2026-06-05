@@ -76,21 +76,26 @@ function getAIWaveIntensity(
   const hasSubBands = aiParams.subBassEnergy !== undefined || aiParams.bassEnergy !== undefined;
   
   if (hasSubBands) {
+    // Compute max to normalize relative band intensities
+    const allBands = [
+      (aiParams.subBassEnergy ?? 0) * 1.5,
+      (aiParams.bassEnergy ?? 0) * 1.2 + (aiParams.lowMidEnergy ?? 0) * 0.8,
+      (aiParams.midEnergy ?? 0) * 1.0,
+      (aiParams.highMidEnergy ?? 0) * 0.9 + (aiParams.trebleEnergy ?? 0) * 0.3,
+      (aiParams.trebleEnergy ?? 0) * 0.8,
+    ];
+    const maxBand = Math.max(...allBands, 0.001);
+
     if (normalizedLayer < 0.2) {
-      // Sub-bass (0-60Hz) - base do movel
-      baseIntensity = (aiParams.subBassEnergy ?? 0) * 1.5;
+      baseIntensity = ((aiParams.subBassEnergy ?? 0) * 1.5) / maxBand;
     } else if (normalizedLayer < 0.4) {
-      // Bass + Low-mid (60-500Hz)
-      baseIntensity = (aiParams.bassEnergy ?? 0) * 1.2 + (aiParams.lowMidEnergy ?? 0) * 0.8;
+      baseIntensity = ((aiParams.bassEnergy ?? 0) * 1.2 + (aiParams.lowMidEnergy ?? 0) * 0.8) / maxBand;
     } else if (normalizedLayer < 0.6) {
-      // Mid (500Hz-2kHz)
-      baseIntensity = (aiParams.midEnergy ?? 0) * 1.0;
+      baseIntensity = ((aiParams.midEnergy ?? 0) * 1.0) / maxBand;
     } else if (normalizedLayer < 0.8) {
-      // High-mid (2kHz-6kHz)
-      baseIntensity = (aiParams.highMidEnergy ?? 0) * 0.9 + (aiParams.trebleEnergy ?? 0) * 0.3;
+      baseIntensity = ((aiParams.highMidEnergy ?? 0) * 0.9 + (aiParams.trebleEnergy ?? 0) * 0.3) / maxBand;
     } else {
-      // Treble (6kHz+) - topo do movel
-      baseIntensity = (aiParams.trebleEnergy ?? 0) * 0.8;
+      baseIntensity = ((aiParams.trebleEnergy ?? 0) * 0.8) / maxBand;
     }
   } else {
     // Fallback para campos originais (low/mid/high)
@@ -120,7 +125,7 @@ function getAIWaveIntensity(
   const verticalWave = Math.sin(normalizedLayer * Math.PI * vertOscillations) * 0.15;
 
   const intensity = Math.max(0, Math.min(1, baseIntensity * (1 + angularWave * 0.5) + fineTexture + verticalWave));
-  const scale = 0.5 + intensity * 0.8;
+  const scale = 0.3 + intensity * 1.4;
 
   return { intensity, scale };
 }
@@ -221,6 +226,24 @@ function getInitialDisplacement(
         const { intensity: aiInt, scale } = getAIWaveIntensity(normalizedLayer, normalizedSeg, aiWaveParams);
         intensity = aiInt;
         scaleModifier = scale;
+
+        // Radial displacement based on AI params
+        const px = basePosition[0];
+        const pz = basePosition[2];
+        const dist = Math.sqrt(px * px + pz * pz);
+        if (dist > 0.01) {
+          const dirX = px / dist;
+          const dirZ = pz / dist;
+          // Displacement magnitude driven by intensity, complexity, and density
+          const waveShape = Math.sin(normalizedLayer * Math.PI * (2 + aiWaveParams.density * 4))
+            * Math.cos(normalizedSeg * Math.PI * (1 + aiWaveParams.complexity * 3));
+          const magnitude = intensity * waveShape * intensityMultiplier * 0.08;
+          return {
+            dx: dirX * magnitude,
+            dz: dirZ * magnitude,
+            scale: scaleModifier
+          };
+        }
       }
       break;
     }
@@ -492,11 +515,9 @@ function Segment({
       // For non-waveform modes (including 'solid'), keep the creative initial displacement
       // computed at mount time and apply the initial scale modifier so the object
       // preserves its designed shape but without per-frame animation.
-      const base = basePosition.current;
-      meshRef.current.position.set(base[0], base[1], base[2]);
+      meshRef.current.position.set(position[0], position[1], position[2]);
       meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
-      const scaleMod = initialScaleModifierRef.current || 1;
-      meshRef.current.scale.set(scale[0] * scaleMod, scale[1], scale[2] * scaleMod);
+      meshRef.current.scale.set(scale[0], scale[1], scale[2]);
       return;
     }
 
@@ -1416,7 +1437,7 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
   }, [chairSeatHeight, chairBackHeight, chairLegHeight, seatY, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, baseTopRadius, baseBottomRadius, backTopRadius, backBottomRadius, chairColor, textureMode, aiWaveParams]);
   
   return (
-    <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
+    <group key={`segs-${params.textureMode}-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}-${JSON.stringify(params.aiWaveParams)}`} position={position}>
       {/* Assento solido */}
       <SolidCap 
         radius={Math.min(chairSeatWidth, chairSeatDepth) * 0.55} 
@@ -1451,12 +1472,12 @@ export function SegmentedChair({ position = [0, 0, 0] }: { position?: [number, n
       ))}
       
       {/* Fios da base */}
-      {textureMode !== 'solid' && baseWires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && baseWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
       {/* Fios do encosto */}
-      {textureMode !== 'solid' && backWires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
     </group>
@@ -1507,7 +1528,7 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
   }, [tableLegHeight, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, baseTopRadius, baseBottomRadius, tableColor, textureMode, aiWaveParams]);
 
   return (
-    <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
+    <group key={`segs-${params.textureMode}-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}-${JSON.stringify(params.aiWaveParams)}`} position={position}>
       {/* Tampo solido */}
       <mesh position={[0, topY, 0]} castShadow receiveShadow>
         <boxGeometry args={[tableTopWidth, tableTopHeight, tableTopDepth]} />
@@ -1535,7 +1556,7 @@ export function SegmentedTable({ position = [0, 0, 0] }: { position?: [number, n
       ))}
       
       {/* Fios */}
-      {textureMode !== 'solid' && wires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && wires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
     </group>
@@ -1597,7 +1618,7 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
   }, [roundTableBaseTopRadius, roundTableBaseBottomRadius, roundTableBaseHeight, segmentHeight, totalHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, roundTableColor, textureMode, aiWaveParams]);
 
   return (
-    <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
+    <group key={`segs-${params.textureMode}-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}-${JSON.stringify(params.aiWaveParams)}`} position={position}>
       {/* Tampo solido */}
       <SolidCap 
         radius={roundTableTopRadius} 
@@ -1627,7 +1648,7 @@ export function SegmentedRoundTable({ position = [0, 0, 0] }: { position?: [numb
       ))}
       
       {/* Fios - mais visiveis */}
-      {wires.map((wire) => (
+      {params.showWireframe && wires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
     </group>
@@ -1755,7 +1776,7 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
   }, [bancoMehinakuTopWidth, bancoMehinakuTopDepth, bancoMehinakuTopHeight, cornerRadius]);
   
   return (
-      <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
+      <group key={`segs-${params.textureMode}-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}-${JSON.stringify(params.aiWaveParams)}`} position={position}>
       {/* Tampo retangular com pontas curvas */}
       <group position={[0, topY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh position={[0, 0, -bancoMehinakuTopHeight / 2]} geometry={topGeometry} receiveShadow>
@@ -1774,12 +1795,12 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
       ))}
       
       {/* Fios - frontal */}
-      {textureMode !== 'solid' && frontWires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && frontWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
       {/* Fios - traseiro */}
-      {textureMode !== 'solid' && backWires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
@@ -2194,7 +2215,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
   });
 
   return (
-      <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
+      <group key={`segs-${params.textureMode}-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}-${JSON.stringify(params.aiWaveParams)}`} position={position}>
       {/* Tampo retangular com pontas curvas (madeira) */}
       <group position={[0, topY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh position={[0, 0, -bancoMehinakuPerfuradoTopHeight / 2]} geometry={topGeometry} receiveShadow>
@@ -2202,9 +2223,9 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
         </mesh>
       </group>
 
-      {/* Chapa perfurada frontal (alpha-masked plane) - positioned at mid-height of leg panel */}
+      {/* Chapa perfurada frontal - positioned at mid-height of leg panel */}
       <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, bancoMehinakuPerfuradoTopDepth / 2 - 0.02]}>
-        <mesh rotation={[0, 0, 0]} castShadow>
+        <mesh castShadow>
           <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
           <meshStandardMaterial
             color={metalColor}
@@ -2215,6 +2236,26 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
             alphaMap={maskTexture || undefined}
             alphaTest={0.01}
           />
+        </mesh>
+        {/* Top edge for thickness */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight / 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoPlateThickness]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Bottom edge for thickness */}
+        <mesh position={[0, -bancoMehinakuPerfuradoLegHeight / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoPlateThickness]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Left edge for thickness */}
+        <mesh position={[-panelWidth / 2, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+          <planeGeometry args={[bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoLegHeight]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Right edge for thickness */}
+        <mesh position={[panelWidth / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoLegHeight]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
         </mesh>
       </group>
 
@@ -2257,15 +2298,15 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
           />
         );
       })}
-      {textureMode !== 'solid' && frontWires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && frontWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
 
       {/* (removed central metal frames/bars) - only perforated plates + segments remain */}
 
-      {/* Chapa perfurada traseira (alpha-masked plane) - positioned at mid-height of leg panel */}
-      <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]} rotation={[0, Math.PI, 0]}>
-        <mesh rotation={[0, Math.PI, 0]} castShadow>
+      {/* Chapa perfurada traseira - positioned at mid-height of leg panel */}
+      <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]}>
+        <mesh castShadow>
           <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
           <meshStandardMaterial
             color={metalColor}
@@ -2276,6 +2317,26 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
             alphaMap={maskTexture || undefined}
             alphaTest={0.01}
           />
+        </mesh>
+        {/* Top edge for thickness */}
+        <mesh position={[0, bancoMehinakuPerfuradoLegHeight / 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoPlateThickness]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Bottom edge for thickness */}
+        <mesh position={[0, -bancoMehinakuPerfuradoLegHeight / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoPlateThickness]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Left edge for thickness */}
+        <mesh position={[-panelWidth / 2, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+          <planeGeometry args={[bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoLegHeight]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
+        </mesh>
+        {/* Right edge for thickness */}
+        <mesh position={[panelWidth / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[bancoMehinakuPerfuradoPlateThickness, bancoMehinakuPerfuradoLegHeight]} />
+          <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
         </mesh>
       </group>
 
@@ -2315,7 +2376,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
           />
         );
       })}
-      {textureMode !== 'solid' && backWires.map((wire) => (
+      {textureMode !== 'solid' && params.showWireframe && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
 
@@ -2390,7 +2451,7 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
   }, [bancoWaujaWidth, bancoWaujaHeight, totalHeight, segmentHeight, params.segmentLayers, params.segmentsPerLayer, params.segmentSize, panelDepth, bancoWaujaColor, textureMode, aiWaveParams]);
   
   return (
-      <group key={`segs-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}`} position={position}>
+      <group key={`segs-${params.textureMode}-${params.segmentsPerLayer}-${params.segmentLayers}-${params.segmentSize}-${JSON.stringify(params.aiWaveParams)}`} position={position}>
       {/* Tampo superior solido */}
       <mesh position={[0, bancoWaujaHeight - 0.015, 0]} castShadow receiveShadow>
         <boxGeometry args={[bancoWaujaWidth, 0.03, bancoWaujaDepth]} />
@@ -2408,12 +2469,12 @@ export function SegmentedBancoWauja({ position = [0, 0, 0] }: { position?: [numb
       ))}
       
       {/* Fios - esquerdo */}
-      {leftWires.map((wire) => (
+      {params.showWireframe && leftWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.0} />
       ))}
       
       {/* Fios - direito */}
-      {rightWires.map((wire) => (
+      {params.showWireframe && rightWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.0} />
       ))}
     </group>

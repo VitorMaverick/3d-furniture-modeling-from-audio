@@ -1006,7 +1006,7 @@ export function Sidebar() {
             </div>
           </div>
 
-          {/* IA Generativa de Ondas */}
+          {/* Modelagem Paramétrica */}
           <FrequencyUploadSection />
 
           <Separator />

@@ -118,7 +118,7 @@ export function FrequencyUploadSection() {
       >
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">IA Generativa de Ondas</h2>
+          <h2 className="text-sm font-semibold">Modelagem Paramétrica</h2>
         </div>
         <div className="flex items-center gap-1.5">
           {isAIActive && (
@@ -132,7 +132,7 @@ export function FrequencyUploadSection() {
 
       {!isOpen && (
         <p className="text-xs text-muted-foreground">
-          Insira os parâmetros em JSON para customizar as ondas do móvel com IA.
+          Ajuste os parâmetros para modelar a geometria do móvel.
         </p>
       )}
 
@@ -141,7 +141,7 @@ export function FrequencyUploadSection() {
           {/* Campo para parametros do Python */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Parâmetros do Python
+              Parâmetros do Modelo
             </label>
             <textarea
               className="w-full h-44 rounded border border-border/50 bg-background p-2 text-xs font-mono resize-none"
@@ -155,7 +155,7 @@ export function FrequencyUploadSection() {
               onChange={(e) => setAudioParamsText(e.target.value)}
             />
             <p className="text-[10px] text-muted-foreground/60">
-              Cole o JSON gerado pelo script de análise de áudio
+              Cole o JSON com os parâmetros de modelagem
             </p>
           </div>
 

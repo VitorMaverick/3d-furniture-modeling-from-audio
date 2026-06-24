@@ -1789,8 +1789,8 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
-      {/* Segmentos - semicirculo traseiro */}
-      {textureMode !== 'solid' && backSegments.map((seg) => (
+      {/* Segmentos - semicirculo traseiro (oculto no modo de apoio único) */}
+      {textureMode !== 'solid' && !params.bancoMehinakuSingleSide && backSegments.map((seg) => (
         <Segment key={seg.key} {...(({ key: _k, ...rest }) => rest)(seg)} />
       ))}
       
@@ -1799,8 +1799,8 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
-      {/* Fios - traseiro */}
-      {textureMode !== 'solid' && params.showWireframe && backWires.map((wire) => (
+      {/* Fios - traseiro (oculto no modo de apoio único) */}
+      {textureMode !== 'solid' && !params.bancoMehinakuSingleSide && params.showWireframe && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
       
@@ -1827,8 +1827,8 @@ export function SegmentedBancoMehinaku({ position = [0, 0, 0] }: { position?: [n
         </group>
       ))}
       
-      {/* Parafusos de rosca contínua que sustentam cada segmento - TRASEIRO */}
-      {segmentColumnPositions.map((col, i) => (
+      {/* Parafusos de rosca contínua que sustentam cada segmento - TRASEIRO (oculto no modo de apoio único) */}
+      {!params.bancoMehinakuSingleSide && segmentColumnPositions.map((col, i) => (
         <group key={`seg-column-back-${i}`} position={[col.x, 0, col.zBack]}>
           {/* Corpo do parafuso */}
           <mesh position={[0, bancoMehinakuLegHeight / 2, 0]} castShadow>
@@ -2304,7 +2304,8 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
 
       {/* (removed central metal frames/bars) - only perforated plates + segments remain */}
 
-      {/* Chapa perfurada traseira - positioned at mid-height of leg panel */}
+      {/* Chapa perfurada traseira (oculta no modo de apoio único) - positioned at mid-height of leg panel */}
+      {!params.bancoMehinakuSingleSide && (
       <group position={[0, bancoMehinakuPerfuradoLegHeight / 2, -bancoMehinakuPerfuradoTopDepth / 2 + 0.02]}>
         <mesh castShadow>
           <planeGeometry args={[panelWidth, bancoMehinakuPerfuradoLegHeight]} />
@@ -2339,9 +2340,10 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
           <meshStandardMaterial color={metalColor} metalness={0.75} roughness={0.25} side={THREE.DoubleSide} />
         </mesh>
       </group>
+      )}
 
-      {/* Segmentos / Fios — Traseiro (slightly inset) */}
-      {textureMode !== 'solid' && backSegments.map((seg) => {
+      {/* Segmentos / Fios — Traseiro (oculto no modo de apoio único) */}
+      {textureMode !== 'solid' && !params.bancoMehinakuSingleSide && backSegments.map((seg) => {
         const s = seg as any;
         const pos: [number, number, number] = s.position;
         // Fixa posicao Z para evitar deslocamento que causa duplicacao visual
@@ -2376,7 +2378,7 @@ export function SegmentedBancoMehinakuPerfurado({ position = [0, 0, 0] }: { posi
           />
         );
       })}
-      {textureMode !== 'solid' && params.showWireframe && backWires.map((wire) => (
+      {textureMode !== 'solid' && !params.bancoMehinakuSingleSide && params.showWireframe && backWires.map((wire) => (
         <Wire key={wire.key} points={wire.points} color={wire.color} lineWidth={1.2} />
       ))}
 

@@ -615,6 +615,17 @@ export function Sidebar() {
                   />
                   <span className="text-xs text-muted-foreground">{(params.bancoMehinakuColumnRadius * 1000).toFixed(1)} mm</span>
                 </div>
+
+                <div className="flex items-center justify-between rounded-md border border-border p-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm">Exibir apenas um lado do apoio</Label>
+                    <p className="text-xs text-muted-foreground">Oculta um dos lados dos parafusos para visualizar o apoio isolado</p>
+                  </div>
+                  <Switch
+                    checked={params.bancoMehinakuSingleSide}
+                    onCheckedChange={(checked) => setParams({ bancoMehinakuSingleSide: checked })}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -725,6 +736,17 @@ export function Sidebar() {
                   <p className="text-xs text-muted-foreground">
                     Quadrado: chapa de ferro perfurada. Trevo: padrao floral. Cruz: padrao geometrico.
                   </p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-md border border-border p-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm">Exibir apenas um lado do apoio</Label>
+                    <p className="text-xs text-muted-foreground">Oculta uma das chapas perfuradas para visualizar o apoio isolado</p>
+                  </div>
+                  <Switch
+                    checked={params.bancoMehinakuSingleSide}
+                    onCheckedChange={(checked) => setParams({ bancoMehinakuSingleSide: checked })}
+                  />
                 </div>
               </div>
             </div>

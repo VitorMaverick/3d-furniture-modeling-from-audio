@@ -75,6 +75,9 @@ export interface FurnitureParams {
   bancoMehinakuPerfuradoPlateThickness: number; // Espessura da chapa
   bancoMehinakuPerfuradoHolePattern: "clover" | "cross" | "square"; // Padrão dos furos
   
+  // Visualização de apoio único (compartilhado entre os bancos Mehinaku: parafusos e perfurado)
+  bancoMehinakuSingleSide: boolean; // Exibe apenas um lado do apoio da base
+  
   // Parâmetros do Banco Waujá
   bancoWaujaWidth: number;
   bancoWaujaDepth: number;
@@ -158,6 +161,9 @@ const defaultParams: FurnitureParams = {
   bancoMehinakuPerfuradoHoleSize: 0.025, // Tamanho dos furos - definido para máximo por padrão
   bancoMehinakuPerfuradoPlateThickness: 0.004, // Espessura da chapa - aumentado para mais resistência
   bancoMehinakuPerfuradoHolePattern: "square" as const, // Padrão dos furos: "square" (quadrado), "clover" (trevo) ou "cross" (cruz)
+  
+  // Visualização de apoio único (ambos os bancos começam com os dois lados visíveis)
+  bancoMehinakuSingleSide: false,
   
   // Banco Waujá
   bancoWaujaWidth: 0.5,

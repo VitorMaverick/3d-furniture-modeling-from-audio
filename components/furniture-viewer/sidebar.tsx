@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download, Camera, Video, Image, X, RectangleHorizontal, LayoutGrid, AlignHorizontalSpaceAround } from "lucide-react";
+import { RotateCcw, Armchair, Table2, Eye, Circle, Music, AudioWaveform, BarChart3, Layers, Pause, Play, Download, Camera, Video, Image, X, RectangleHorizontal, LayoutGrid, AlignHorizontalSpaceAround, Waves } from "lucide-react";
 import { exportToSTL, exportToOBJ } from "@/lib/stl-exporter";
 import { FrequencyUploadSection } from "@/components/furniture-viewer/frequency-upload-modal";
 import { useState } from "react";
@@ -48,7 +48,8 @@ export function Sidebar() {
       roundTable: "mesa-redonda",
       bancoMehinaku: "banco-mehinaku",
       bancoMehinakuPerfurado: "banco-mehinaku-perfurado",
-      bancoWauja: "banco-wauja"
+      bancoWauja: "banco-wauja",
+      bancoTecido: "banco-tecido"
     };
     
     const filename = `${furnitureNames[params.activeTab]}-${params.textureMode}`;
@@ -110,6 +111,10 @@ export function Sidebar() {
               <TabsTrigger value="bancoWauja" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
                 <AlignHorizontalSpaceAround className="h-3 w-3" />
                 Wauja
+              </TabsTrigger>
+              <TabsTrigger value="bancoTecido" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
+                <Waves className="h-3 w-3" />
+                Banco Tecido
               </TabsTrigger>
             </TabsList>
           </Tabs>

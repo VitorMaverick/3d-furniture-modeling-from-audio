@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useRef, useCallback, ReactNode, RefObject } from "react";
 import * as THREE from "three";
 
-export type FurnitureTab = "chair" | "table" | "roundTable" | "bancoMehinaku" | "bancoMehinakuPerfurado" | "bancoWauja";
+export type FurnitureTab = "chair" | "table" | "roundTable" | "bancoMehinaku" | "bancoMehinakuPerfurado" | "bancoWauja" | "bancoTecido";
 export type TextureMode = "solid" | "waveform" | "fft" | "spectrogram" | "combined" | "ai-image";
 
 export interface AIWaveParams {

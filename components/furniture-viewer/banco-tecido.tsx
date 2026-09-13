@@ -11,9 +11,9 @@ const BASE_Y = 0.06;
 const TOP_Y = 0.91;
 const TOP_RADIUS = 0.43;
 const BASE_RADIUS = 0.31;
-const RING_RADIUS = 0.012;
-const THREAD_RADIUS = 0.006;
-const palette = ["#a94f2b", "#c66a36", "#7d3e2b", "#d6aa72", "#ead1a2"];
+const RING_RADIUS = 0.0065;
+const THREAD_RADIUS = 0.0032;
+const palette = ["#a94f2b", "#b85c32", "#9b472b", "#c66a36", "#a9512c"];
 
 function signal(index: number, total: number, mode: TextureMode, intensity: number) {
   const t = total <= 1 ? 0 : index / (total - 1);
@@ -57,8 +57,9 @@ export function BancoTecido({ position = [0, 0, 0] as Point }) {
   const { params } = useFurniture();
   const mode = params.textureMode === "solid" ? "waveform" : params.textureMode;
   const intensity = params.textureMode === "fft" ? params.fftIntensity : params.textureMode === "spectrogram" ? params.spectrogramIntensity : params.waveIntensity;
-  const verticalCount = 30;
-  const horizontalCount = 7;
+  // Fios finos e muito próximos para formar uma superfície contínua de tecido.
+  const verticalCount = 76;
+  const horizontalCount = 18;
 
   const verticalThreads = useMemo(() => Array.from({ length: verticalCount }, (_, index) => {
     const t = index / (verticalCount - 1);

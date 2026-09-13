@@ -12,8 +12,8 @@ const BASE_Y = 0.06;
 const TOP_Y = 0.91;
 const TOP_RADIUS = 0.43;
 const BASE_RADIUS = 0.31;
-const RING_RADIUS = 0.0046;
-const THREAD_RADIUS = 0.0047;
+const RING_RADIUS = 0.0062;
+const THREAD_RADIUS = 0.0078;
 
 const BASE_COLOR = "#a94f2b";
 const BASE_COLOR_DARK = "#8f3f24";
@@ -92,9 +92,9 @@ export function BancoTecido({ position = [0, 0, 0] as Point }) {
 
   // Muitos fios finos e encostados formam a superfície de tecido. Cada fio é dividido em
   // segmentos verticais coloridos (base ou bege) para desenhar o padrão de ondas na malha.
-  const verticalCount = 200;
+  const verticalCount = 220;
   const segmentsPerThread = 40;
-  const horizontalCount = 26;
+  const horizontalCount = 46;
 
   const { baseGeometry, accentGeometry } = useMemo(() => {
     const baseParts: THREE.BufferGeometry[] = [];
@@ -145,6 +145,12 @@ export function BancoTecido({ position = [0, 0, 0] as Point }) {
   return (
     <group position={position}>
       <LeatherTop />
+      {/* Forro sólido atrás dos fios: preenche os vãos com cor quente para que o fundo
+          escuro da cena nunca apareça através da trama, dando aparência de tecido cheio. */}
+      <mesh position={[0, (BASE_Y + TOP_Y) / 2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[BASE_RADIUS * 0.965, BASE_RADIUS * 0.965, TOP_Y - BASE_Y, 64]} />
+        <meshStandardMaterial color={BASE_COLOR_DARK} roughness={0.85} />
+      </mesh>
       {horizontalRings.map((ring, index) => <Ring key={`ring-${index}`} {...ring} color={index % 2 ? BASE_COLOR : BASE_COLOR_DARK} />)}
       <Ring y={BASE_Y} radius={BASE_RADIUS} color="#7d3e2b" />
       <Ring y={TOP_Y} radius={BASE_RADIUS} color="#a8784a" />

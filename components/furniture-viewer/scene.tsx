@@ -8,6 +8,7 @@ import { RoundTable } from "./round-table";
 import { BancoMehinaku } from "./banco-mehinaku";
 import { BancoMehinakuPerfurado } from "./banco-mehinaku-perfurado";
 import { BancoWauja } from "./banco-wauja";
+import { BancoTear } from "./banco-tear";
 import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoMehinakuPerfurado, SegmentedBancoWauja } from "./segmented-furniture";
 import { RecordingController } from "./recording-controller";
 import { ImageCaptureBridge } from "./image-capture-bridge";
@@ -60,6 +61,7 @@ function SceneContent() {
             {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku key={`bancoMehinaku-solid-${params.textureMode}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-solid-${params.textureMode}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <BancoWauja key={`bancoWauja-solid-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoTear" && <BancoTear key={`bancoTear-solid-${params.textureMode}`} position={[0, 0, 0]} />}
           </>
         ) : (
           <>
@@ -69,6 +71,7 @@ function SceneContent() {
             {params.activeTab === "bancoMehinaku" && <SegmentedBancoMehinaku key={`bancoMehinaku-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <SegmentedBancoWauja key={`bancoWauja-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "bancoTear" && <BancoTear key={`bancoTear-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
           </>
         )}
       </group>

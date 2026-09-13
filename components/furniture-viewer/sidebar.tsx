@@ -49,7 +49,7 @@ export function Sidebar() {
       bancoMehinaku: "banco-mehinaku",
       bancoMehinakuPerfurado: "banco-mehinaku-perfurado",
       bancoWauja: "banco-wauja",
-      bancoTear: "banco-tear"
+      bancoTecido: "banco-tecido"
     };
     
     const filename = `${furnitureNames[params.activeTab]}-${params.textureMode}`;
@@ -112,9 +112,9 @@ export function Sidebar() {
                 <AlignHorizontalSpaceAround className="h-3 w-3" />
                 Wauja
               </TabsTrigger>
-              <TabsTrigger value="bancoTear" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
+              <TabsTrigger value="bancoTecido" className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 min-w-[70px]">
                 <Waves className="h-3 w-3" />
-                Banco Tear
+                Banco Tecido
               </TabsTrigger>
             </TabsList>
           </Tabs>

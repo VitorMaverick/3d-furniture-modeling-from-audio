@@ -32,11 +32,12 @@ function Yarn({ points, color, radius = THREAD_RADIUS }: { points: Point[]; colo
   return <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial color={color} roughness={0.84} /></mesh>;
 }
 
-function Ring({ y, radius, color = "#8d8b84" }: { y: number; radius: number; color?: string }) {
-  const points = useMemo(() => Array.from({ length: 33 }, (_, index) => {
-    const angle = (index / 32) * Math.PI * 2;
-    return [Math.cos(angle) * radius, y, Math.sin(angle) * radius] as Point;
-  }), [radius, y]);
+function Ring({ y, radius, color = "#8d8b84", wave = 0 }: { y: number; radius: number; color?: string; wave?: number }) {
+  const points = useMemo(() => Array.from({ length: 65 }, (_, index) => {
+    const angle = (index / 64) * Math.PI * 2;
+    const pulse = wave * Math.sin(angle * 6 + y * 8);
+    return [Math.cos(angle) * (radius + pulse), y + wave * 0.35 * Math.sin(angle * 6 + 0.8), Math.sin(angle) * (radius + pulse)] as Point;
+  }), [radius, y, wave]);
   return <Yarn points={points} color={color} radius={RING_RADIUS} />;
 }
 
@@ -71,19 +72,24 @@ export function BancoTecido({ position = [0, 0, 0] as Point }) {
   const horizontalRings = useMemo(() => Array.from({ length: horizontalCount }, (_, index) => {
     const t = index / (horizontalCount - 1);
     const value = signal(index, horizontalCount, mode, intensity);
-    return { y: BASE_Y + t * (HEIGHT - 0.03), radius: THREE.MathUtils.lerp(BASE_RADIUS, TOP_RADIUS * 0.82, t) + (value - 0.5) * 0.012 };
+    return {
+      y: BASE_Y + t * (HEIGHT - 0.03),
+      radius: THREE.MathUtils.lerp(BASE_RADIUS, TOP_RADIUS * 0.82, t),
+      wave: (0.004 + value * 0.012) * Math.min(1, intensity + 0.25),
+    };
   }), [mode, intensity]);
 
   return (
     <group position={position}>
       <LeatherTop />
-      {horizontalRings.map((ring, index) => <Ring key={`ring-${index}`} {...ring} color={index % 2 ? "#aaa79b" : "#77766f"} />)}
-      <Ring y={BASE_Y} radius={BASE_RADIUS} />
-      <Ring y={TOP_Y} radius={TOP_RADIUS * 0.82} />
+      {horizontalRings.map((ring, index) => <Ring key={`ring-${index}`} {...ring} color={index % 2 ? "#e4c58e" : "#b9683c"} />)}
+      <Ring y={BASE_Y} radius={BASE_RADIUS} color="#7d3e2b" />
+      <Ring y={TOP_Y} radius={TOP_RADIUS * 0.82} color="#a8784a" />
       {verticalThreads.map(({ angle, radius, sway, color }, index) => {
         const x = Math.cos(angle) * radius;
         const z = Math.sin(angle) * radius;
-        return <Yarn key={`warp-${index}`} color={color} points={[[x, BASE_Y, z], [x + sway, BASE_Y + HEIGHT * 0.5, z + sway], [x, TOP_Y, z]]} />;
+        const wave = Math.sin(angle * 6) * (0.006 + intensity * 0.016);
+        return <Yarn key={`warp-${index}`} color={color} points={[[x, BASE_Y, z], [x + sway + wave, BASE_Y + HEIGHT * 0.25, z + sway], [x - wave, BASE_Y + HEIGHT * 0.58, z + wave], [x, TOP_Y, z]]} />;
       })}
       <Yarn points={[[0, BASE_Y, 0], [0, TOP_Y, 0]]} color="#3b3029" radius={0.014} />
       <mesh position={[0, 0.025, 0]} receiveShadow>

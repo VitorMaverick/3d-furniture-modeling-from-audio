@@ -6,14 +6,13 @@ import { useFurniture, TextureMode } from "@/lib/furniture-context";
 
 type Point = [number, number, number];
 
-const WIDTH = 0.82;
-const SEAT_DEPTH = 0.48;
-const SEAT_HEIGHT = 0.46;
-const BACK_HEIGHT = 0.78;
-const BACK_BOTTOM = 0.54;
-const FRAME = 0.018;
-const THREAD = 0.008;
-
+const HEIGHT = 0.82;
+const BASE_Y = 0.06;
+const TOP_Y = 0.91;
+const TOP_RADIUS = 0.43;
+const BASE_RADIUS = 0.31;
+const RING_RADIUS = 0.012;
+const THREAD_RADIUS = 0.006;
 const palette = ["#a94f2b", "#c66a36", "#7d3e2b", "#d6aa72", "#ead1a2"];
 
 function signal(index: number, total: number, mode: TextureMode, intensity: number) {
@@ -25,66 +24,72 @@ function signal(index: number, total: number, mode: TextureMode, intensity: numb
   return THREE.MathUtils.lerp(0.82, value, Math.min(1, intensity));
 }
 
-function Thread({ points, color, radius = THREAD }: { points: Point[]; color: string; radius?: number }) {
+function Yarn({ points, color, radius = THREAD_RADIUS }: { points: Point[]; color: string; radius?: number }) {
   const geometry = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)));
     return new THREE.TubeGeometry(curve, Math.max(8, points.length * 3), radius, 5, false);
   }, [points, radius]);
-
-  return <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial color={color} roughness={0.86} /></mesh>;
+  return <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial color={color} roughness={0.84} /></mesh>;
 }
 
-function FabricPanel({ width, height, y, z, horizontal = false, mode, intensity }: { width: number; height: number; y: number; z: number; horizontal?: boolean; mode: TextureMode; intensity: number }) {
-  const count = horizontal ? Math.max(20, Math.round(width / 0.035)) : Math.max(14, Math.round(height / 0.045));
-  const lines = useMemo(() => Array.from({ length: count }, (_, index) => {
-    const p = signal(index, count, mode, intensity);
-    const progress = count <= 1 ? 0.5 : index / (count - 1);
-    const curve = (p - 0.5) * 0.018;
-    const color = palette[index % palette.length];
-    if (horizontal) {
-      const x = -width / 2 + progress * width;
-      return { color, points: [[x, y + curve, z], [x + curve * 0.4, y + curve * 0.8, z + height * 0.5], [x, y + curve, z + height]] as Point[] };
-    }
-    const x = -width / 2 + progress * width;
-    return { color, points: [[x, y, z + curve], [x + curve, y + height * 0.5, z + curve], [x, y + height, z + curve]] as Point[] };
-  }), [count, height, width, y, z, horizontal, mode, intensity]);
-
-  return <>{lines.map((line, index) => <Thread key={`${horizontal ? "weft" : "warp"}-${index}`} points={line.points} color={line.color} />)}</>;
+function Ring({ y, radius, color = "#8d8b84" }: { y: number; radius: number; color?: string }) {
+  const points = useMemo(() => Array.from({ length: 33 }, (_, index) => {
+    const angle = (index / 32) * Math.PI * 2;
+    return [Math.cos(angle) * radius, y, Math.sin(angle) * radius] as Point;
+  }), [radius, y]);
+  return <Yarn points={points} color={color} radius={RING_RADIUS} />;
 }
 
-function Frame({ position, scale }: { position: Point; scale: Point }) {
-  return <mesh position={position} scale={scale} castShadow><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial color="#77766f" metalness={0.55} roughness={0.42} /></mesh>;
+function LeatherTop() {
+  return (
+    <group position={[0, TOP_Y + 0.045, 0]}>
+      <mesh castShadow receiveShadow>
+        <cylinderGeometry args={[TOP_RADIUS, TOP_RADIUS, 0.1, 48]} />
+        <meshStandardMaterial color="#80502e" roughness={0.7} />
+      </mesh>
+      <Ring y={0.055} radius={TOP_RADIUS * 0.98} color="#a8784a" />
+    </group>
+  );
 }
 
 export function BancoTecido({ position = [0, 0, 0] as Point }) {
   const { params } = useFurniture();
   const mode = params.textureMode === "solid" ? "waveform" : params.textureMode;
   const intensity = params.textureMode === "fft" ? params.fftIntensity : params.textureMode === "spectrogram" ? params.spectrogramIntensity : params.waveIntensity;
-  const pulse = signal(4, 9, mode, intensity);
-  const seatWidth = WIDTH * (0.96 + pulse * 0.04);
-  const backWidth = WIDTH * 0.92;
+  const verticalCount = 30;
+  const horizontalCount = 7;
+
+  const verticalThreads = useMemo(() => Array.from({ length: verticalCount }, (_, index) => {
+    const t = index / (verticalCount - 1);
+    const angle = t * Math.PI * 2;
+    const value = signal(index, verticalCount, mode, intensity);
+    const radius = THREE.MathUtils.lerp(BASE_RADIUS, TOP_RADIUS * 0.82, t);
+    const sway = (value - 0.5) * 0.018;
+    return { angle, radius, sway, color: palette[index % palette.length] };
+  }), [mode, intensity]);
+
+  const horizontalRings = useMemo(() => Array.from({ length: horizontalCount }, (_, index) => {
+    const t = index / (horizontalCount - 1);
+    const value = signal(index, horizontalCount, mode, intensity);
+    return { y: BASE_Y + t * (HEIGHT - 0.03), radius: THREE.MathUtils.lerp(BASE_RADIUS, TOP_RADIUS * 0.82, t) + (value - 0.5) * 0.012 };
+  }), [mode, intensity]);
 
   return (
     <group position={position}>
-      {/* Estrutura discreta atrás do revestimento */}
-      <Frame position={[0, SEAT_HEIGHT, 0]} scale={[seatWidth, FRAME, SEAT_DEPTH]} />
-      <Frame position={[-backWidth / 2, BACK_BOTTOM + BACK_HEIGHT / 2, 0]} scale={[FRAME, BACK_HEIGHT, FRAME]} />
-      <Frame position={[backWidth / 2, BACK_BOTTOM + BACK_HEIGHT / 2, 0]} scale={[FRAME, BACK_HEIGHT, FRAME]} />
-      <Frame position={[0, BACK_BOTTOM + BACK_HEIGHT, 0]} scale={[backWidth, FRAME, FRAME]} />
-      <Frame position={[-backWidth * 0.42, 0.25, 0]} scale={[FRAME, 0.42, FRAME]} />
-      <Frame position={[backWidth * 0.42, 0.25, 0]} scale={[FRAME, 0.42, FRAME]} />
-
-      {/* Assento: urdidura longitudinal e trama transversal formando uma superfície estrutural */}
-      <FabricPanel width={seatWidth} height={SEAT_DEPTH} y={SEAT_HEIGHT + 0.015} z={-SEAT_DEPTH / 2 + 0.035} mode={mode} intensity={intensity} />
-      <FabricPanel width={SEAT_DEPTH} height={seatWidth} y={SEAT_HEIGHT + 0.023} z={-SEAT_DEPTH / 2 + 0.048} horizontal mode={mode} intensity={intensity} />
-
-      {/* Encosto amplo, levemente afunilado e inteiramente tecido */}
-      <FabricPanel width={backWidth} height={BACK_HEIGHT} y={BACK_BOTTOM} z={-0.015} mode={mode} intensity={intensity} />
-      <FabricPanel width={backWidth} height={BACK_HEIGHT} y={BACK_BOTTOM} z={0.012} horizontal mode={mode} intensity={intensity} />
-
-      {/* Bordas encapadas, mantendo os fios presos à estrutura */}
-      <Thread points={[[-seatWidth / 2, SEAT_HEIGHT + 0.03, -SEAT_DEPTH / 2], [seatWidth / 2, SEAT_HEIGHT + 0.03, -SEAT_DEPTH / 2]]} color="#d1ad78" radius={FRAME} />
-      <Thread points={[[-backWidth / 2, BACK_BOTTOM, 0], [-backWidth / 2, BACK_BOTTOM + BACK_HEIGHT, 0], [backWidth / 2, BACK_BOTTOM + BACK_HEIGHT, 0], [backWidth / 2, BACK_BOTTOM, 0]]} color="#d1ad78" radius={FRAME} />
+      <LeatherTop />
+      {horizontalRings.map((ring, index) => <Ring key={`ring-${index}`} {...ring} color={index % 2 ? "#aaa79b" : "#77766f"} />)}
+      <Ring y={BASE_Y} radius={BASE_RADIUS} />
+      <Ring y={TOP_Y} radius={TOP_RADIUS * 0.82} />
+      {verticalThreads.map(({ angle, radius, sway, color }, index) => {
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        return <Yarn key={`warp-${index}`} color={color} points={[[x, BASE_Y, z], [x + sway, BASE_Y + HEIGHT * 0.5, z + sway], [x, TOP_Y, z]]} />;
+      })}
+      <Yarn points={[[0, BASE_Y, 0], [0, TOP_Y, 0]]} color="#3b3029" radius={0.014} />
+      <mesh position={[0, 0.025, 0]} receiveShadow>
+        <cylinderGeometry args={[BASE_RADIUS * 0.98, BASE_RADIUS * 0.98, 0.035, 48]} />
+        <meshStandardMaterial color="#6c6b65" metalness={0.55} roughness={0.5} transparent opacity={0.22} />
+      </mesh>
     </group>
   );
 }

@@ -9,6 +9,7 @@ import { BancoMehinaku } from "./banco-mehinaku";
 import { BancoMehinakuPerfurado } from "./banco-mehinaku-perfurado";
 import { BancoWauja } from "./banco-wauja";
 import { BancoTecido } from "./banco-tecido";
+import { MalhaPlanificada } from "./malha-planificada";
 import { SegmentedChair, SegmentedTable, SegmentedRoundTable, SegmentedBancoMehinaku, SegmentedBancoMehinakuPerfurado, SegmentedBancoWauja } from "./segmented-furniture";
 import { RecordingController } from "./recording-controller";
 import { ImageCaptureBridge } from "./image-capture-bridge";
@@ -62,6 +63,7 @@ function SceneContent() {
             {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-solid-${params.textureMode}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <BancoWauja key={`bancoWauja-solid-${params.textureMode}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoTecido" && <BancoTecido key={`bancoTecido-solid-${params.textureMode}`} position={[0, 0, 0]} />}
+            {params.activeTab === "malhaPlanificada" && <MalhaPlanificada key={`malhaPlanificada-solid-${params.textureMode}`} position={[0, 0.6, 0]} />}
           </>
         ) : (
           <>
@@ -72,6 +74,7 @@ function SceneContent() {
             {params.activeTab === "bancoMehinakuPerfurado" && <SegmentedBancoMehinakuPerfurado key={`bancoMehinakuPerfurado-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoWauja" && <SegmentedBancoWauja key={`bancoWauja-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
             {params.activeTab === "bancoTecido" && <BancoTecido key={`bancoTecido-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0, 0]} />}
+            {params.activeTab === "malhaPlanificada" && <MalhaPlanificada key={`malhaPlanificada-${params.textureMode}-${JSON.stringify(params.aiWaveParams)}`} position={[0, 0.6, 0]} />}
           </>
         )}
       </group>

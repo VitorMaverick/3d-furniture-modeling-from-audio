@@ -152,7 +152,7 @@ function getAIWaveColor(
 }
 
 // Calcula o deslocamento inicial baseado no modo de textura
-function getInitialDisplacement(
+export function getInitialDisplacement(
   layerIndex: number,
   totalLayers: number,
   segmentIndex: number,
@@ -389,7 +389,7 @@ function getCombinedColor(normalizedY: number, intensity: number = 1, baseColor?
 }
 
 // Funcao principal que seleciona a cor baseado no modo de textura
-function getTextureColor(
+export function getTextureColor(
   normalizedY: number,
   intensity: number = 1,
   baseColor?: string,
